@@ -1,0 +1,13 @@
+.DS_store
+
+# data
+ml-100k
+*eval*
+
+# Intellij meta data
+.idea
+
+#
+*_pycache_*
+
+results
