@@ -1,4 +1,5 @@
 .DS_store
+*.jar
 
 # data
 ml-100k

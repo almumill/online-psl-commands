@@ -16,6 +16,10 @@ readonly STRING_IDS='entity-resolution simple-acquaintances user-modeling'
 readonly POSTGRES_DB='psl'
 readonly STANDARD_PSL_OPTIONS="--postgres ${POSTGRES_DB} -D admmreasoner.initialconsensusvalue=ZERO -D log4j.threshold=TRACE"
 
+
+readonly ONLINE_SERVER_PSL_OPTIONS="inference.online=true"
+readonly ONLINE_CLIENT_PSL_OPTIONS="inference.online=true --onlineClient"
+
 # Options specific to each dataset (missing keys yield empty strings).
 declare -A DATASET_OPTIONS
 DATASET_OPTIONS[movielens]=''
@@ -32,6 +36,36 @@ function run() {
 }
 
 function run_inference() {
+    if [ "$time_step" = "0" ]; then
+      run_online_server "$@"
+    else
+      run_online_client "$@"
+    fi
+
+    return 0
+}
+
+function run_online_server() {
+    local dataset_name=$1
+    local fold=$2
+    local time_step=$3
+    local evaluator=$4
+    local out_directory=$5
+    local trace_level=$6
+
+    shift 6
+
+    # Write the command file for the specific timestamp
+
+
+    # pipe commands to psl cli to send off to server
+
+    # query results
+
+    # save results
+}
+
+function run_online_server() {
     local dataset_name=$1
     local fold=$2
     local time_step=$3
@@ -45,7 +79,7 @@ function run_inference() {
     local cli_directory="${dataset_directory}/cli"
 
     # modify runscript to run with the options for this study
-    modify_run_script_options "$dataset_directory" "$evaluator" "$trace_level"
+    modify_run_script_options "$dataset_directory" "$evaluator" "$trace_level" "$ONLINE_SERVER_PSL_OPTIONS"
 
     # modify data files to point to the fold
     modify_data_files "$dataset_directory" "$fold"
@@ -61,8 +95,6 @@ function run_inference() {
 
     # save inferred predicates
     mv "${cli_directory}/inferred-predicates" "${out_directory}/inferred-predicates"
-
-    return 0
 }
 
 function set_psl_version() {
@@ -82,6 +114,7 @@ function modify_run_script_options() {
     local dataset_directory=$1
     local objective=$2
     local trace_level=$3
+    local online_options=$4
 
     local dataset_name
     dataset_name=$(basename "${dataset_directory}")
@@ -99,7 +132,7 @@ function modify_run_script_options() {
         sed -i "s/^readonly ADDITIONAL_PSL_OPTIONS='.*'$/readonly ADDITIONAL_PSL_OPTIONS='${int_ids_options} ${STANDARD_PSL_OPTIONS}'/" run.sh
 
         # set the ADDITIONAL_EVAL_OPTIONS
-        sed -i "s/^readonly ADDITIONAL_EVAL_OPTIONS='.*'$/readonly ADDITIONAL_EVAL_OPTIONS='--infer --eval org.linqs.psl.evaluation.statistics.${objective}Evaluator -D log4j.threshold=${trace_level} ${DATASET_OPTIONS[${dataset_name}]}'/" run.sh
+        sed -i "s/^readonly ADDITIONAL_EVAL_OPTIONS='.*'$/readonly ADDITIONAL_EVAL_OPTIONS='--infer=OnlineInference --eval org.linqs.psl.evaluation.statistics.${objective}Evaluator -D log4j.threshold=${trace_level} ${DATASET_OPTIONS[${dataset_name}]} ${online_options}'/" run.sh
     popd > /dev/null
 }
 

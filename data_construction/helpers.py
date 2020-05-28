@@ -108,3 +108,43 @@ def timestamp_matches_month(ratings_df, time_tuple):
          else:
              bool_array += [False]
     return bool_array
+
+
+def standardize_ratings(observed_ratings_df, truth_ratings_df):
+    # obs
+    observed_ratings_series = observed_ratings_df.loc[:, ['userId', 'movieId', 'rating']].set_index(
+        ['userId', 'movieId'])
+
+    observed_by_user = observed_ratings_series.groupby(level=0)
+    user_means = observed_by_user.mean()
+    user_std = observed_by_user.std().fillna(0)
+
+    mean_of_means = user_means.mean()
+    mean_of_stds = user_std.mean()
+
+
+    for user in observed_ratings_series.index.get_level_values(0).unique():
+        if user_std.loc[user].values[0] != 0.0:
+            observed_ratings_series.loc[user, :] = ((observed_ratings_series.loc[user, :] - user_means.loc[user].values[0])
+                                                 / (4 * user_std.loc[user].values[0])) + 0.5
+        else:
+            observed_ratings_series.loc[user, :] = ((observed_ratings_series.loc[user, :] - mean_of_means)
+                                                 / (4 * mean_of_stds)) + 0.5
+
+    observed_ratings_series = observed_ratings_series.clip(lower=0, upper=1)
+
+    # truth
+
+    truth_ratings_series = truth_ratings_df.loc[:, ['userId', 'movieId', 'rating']].set_index(['userId', 'movieId'])
+
+    for user in truth_ratings_series.index.get_level_values(0).unique():
+        try:
+            truth_ratings_series.loc[user, :] = ((truth_ratings_series.loc[user, :] - user_means.loc[user].values[0])
+                                                     / (4 * user_std.loc[user].values[0])) + 0.5
+        except KeyError as e:
+            truth_ratings_series.loc[user, :] = ((truth_ratings_series.loc[user, :] - mean_of_means)
+                                                 / (4 * mean_of_stds)) + 0.5
+
+    truth_ratings_series = truth_ratings_series.clip(lower=0, upper=1)
+
+    return observed_ratings_series, truth_ratings_series

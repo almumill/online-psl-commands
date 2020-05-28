@@ -4,14 +4,13 @@
 # These options are blind-passed to the CLI.
 # Ex: ./run.sh -D log4j.threshold=DEBUG
 
-readonly PSL_VERSION='2.2.1'
+readonly PSL_VERSION='2.3.0-SNAPSHOT'
 readonly JAR_PATH="./psl-cli-${PSL_VERSION}.jar"
 readonly FETCH_DATA_SCRIPT='../data/fetchData.sh'
 readonly BASE_NAME='movielens'
-readonly FOLD_COUNT=8
 
-readonly ADDITIONAL_PSL_OPTIONS='--postgres psl'
-readonly ADDITIONAL_EVAL_OPTIONS='--infer --eval org.linqs.psl.evaluation.statistics.ContinuousEvaluator'
+readonly ADDITIONAL_PSL_OPTIONS='--int-ids  --postgres psl -D admmreasoner.initialconsensusvalue=ZERO -D log4j.threshold=TRACE'
+readonly ADDITIONAL_EVAL_OPTIONS='--infer --eval org.linqs.psl.evaluation.statistics.ContinuousEvaluator -D log4j.threshold=TRACE '
 
 function main() {
    trap exit SIGINT
@@ -22,7 +21,7 @@ function main() {
 
    # Make sure we can run PSL.
    check_requirements
-   fetch_psl
+   # fetch_psl
 
    # Run PSL
    runEvaluation "$@"
@@ -38,12 +37,8 @@ function getData() {
 }
 
 function runEvaluation() {
-   for (( i=0; i<${FOLD_COUNT}; i++ ))
-      do
-         echo "Running PSL Inference on fold ${i}"
-         java -jar "${JAR_PATH}" --model "${BASE_NAME}.psl" --data "${BASE_NAME}-fold${i}.data" --output inferred-predicates ${ADDITIONAL_EVAL_OPTIONS} ${ADDITIONAL_PSL_OPTIONS} "$@"
-         cp inferred-predicates/RATING.txt inferred-predicates/RATING_fold_$i.txt
-      done
+   echo "Running PSL Inference on fold ${i}"
+   java -Xmx8G -Xms8G -jar "${JAR_PATH}" --model "${BASE_NAME}.psl" --data "${BASE_NAME}.data" --output inferred-predicates ${ADDITIONAL_EVAL_OPTIONS} ${ADDITIONAL_PSL_OPTIONS} "$@"
    if [[ "$?" -ne 0 ]]; then
       echo 'ERROR: Failed to run infernce'
       exit 70

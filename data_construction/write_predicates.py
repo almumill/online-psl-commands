@@ -1,7 +1,8 @@
 import pandas as pd
+import numpy as np
 import os
 
-from helpers import get_months_list, get_month_and_date, timestamp_matches_month
+from helpers import get_months_list, get_month_and_date, timestamp_matches_month, standardize_ratings
 from predicate_constructors.ratings import ratings_predicate
 from predicate_constructors.rated import rated_predicate
 from predicate_constructors.nmf_ratings import nmf_ratings_predicate
@@ -40,15 +41,16 @@ def construct_movielens_predicates():
         if not os.path.exists(DATA_PATH + '/movielens/' + str(i) + '/eval'):
             os.makedirs(DATA_PATH + '/movielens/' + str(i) + '/eval')
         # get observations/truths for this split
-        ratings_df = ratings_df_dict[ordered_list_of_months[i]]
-        observed_ratings_df, truth_ratings_df = partition_by_timestamp(ratings_df)
+        fold_ratings_df = ratings_df_dict[ordered_list_of_months[i]]
+        observed_ratings_df, truth_ratings_df = split_by_timestamp(fold_ratings_df)
+        observed_ratings_series, truth_ratings_series = standardize_ratings(observed_ratings_df, truth_ratings_df)
         user_df = user_df_dict[ordered_list_of_months[i]]
         movies_df = movies_df_dict[ordered_list_of_months[i]]
+        partitioned_truth_ratings = parition_by_timestamp(truth_ratings_df)
 
-        users = ratings_df.userId.unique()
-        movies = ratings_df.movieId.unique()
+        users = fold_ratings_df.userId.unique()
+        movies = fold_ratings_df.movieId.unique()
 
-        ratings_predicate(observed_ratings_df, truth_ratings_df, str(i))
         nmf_ratings_predicate(observed_ratings_df, truth_ratings_df, str(i))
         rated_predicate(observed_ratings_df, truth_ratings_df, str(i))
         item_predicate(observed_ratings_df, truth_ratings_df, str(i))
@@ -59,23 +61,39 @@ def construct_movielens_predicates():
         sim_content_predicate(movies_df, str(i))
         sim_items_predicate(observed_ratings_df, truth_ratings_df, movies, str(i))
         sim_users_predicate(observed_ratings_df, truth_ratings_df, users, str(i))
+
+        ratings_predicate(observed_ratings_df, partition='obs', fold=str(i))
+        aggregated_truths = pd.DataFrame()
+        for time_step, truth_ratings_df_i in enumerate(partitioned_truth_ratings):
+            # construct the target for timestamp
+            aggregated_truths = aggregated_truths.append(truth_ratings_df_i, ignore_index=True)
+            ratings_predicate(aggregated_truths.loc[:, []], partition='targets_ts_' + str(time_step), fold=str(i))
+            ratings_predicate(aggregated_truths, partition='truth_ts_' + str(time_step), fold=str(i))
+
+            # write timestep command file
+
         print("Did split #"+str(i))
     for i in range(len(ordered_list_of_months)):
         print("Fold #"+str(i)+" -- " + str(ordered_list_of_months[i]))
 
 
-def partition_by_timestamp(ratings_df, train_proportion=0.8):
+def split_by_timestamp(ratings_df, train_proportion=0.8):
     sorted_frame = ratings_df.sort_values(by='timestamp')
     return (sorted_frame.iloc[: int(sorted_frame.shape[0] * train_proportion), :],
             sorted_frame.iloc[int(sorted_frame.shape[0] * train_proportion):, :])
 
 
+def parition_by_timestamp(ratings_df, n_paritions=10):
+    sorted_frame = ratings_df.sort_values(by='timestamp')
+    integer_paritions = np.split(np.arange(sorted_frame.shape[0]), n_paritions)
+    return [sorted_frame.iloc[i] for i in integer_paritions]
+
+
 def filter_dataframes(movies_df, ratings_df, user_df):
     """
-    Get rid of users who have not yet rated more than n movies
     Note that there are no users where there are less than 20 ratings occurring in the raw datatset
     """
-    return movies_df, ratings_df.groupby('userId').filter(lambda x: x.shape[0] > 5), user_df
+    return movies_df, ratings_df, user_df
 
 
 def load_dataframes():
