@@ -1,10 +1,8 @@
 import pandas as pd
-from scripts import constants
+import constants
 import os
 import numpy as np
-from scripts.timestamps import get_months_list, timestamp_matches_month
-from scripts.command_utils import create_command_line, create_proportional_slices
-from scripts.helpers import query_relevance_cosine_similarity
+from command_utils import create_command_line, create_proportional_slices
 
 
 # location of ratings data relative to CWD
@@ -37,6 +35,21 @@ RATING_CONSTANT_COL_NAMES = ['userId', 'movieId']
 # name of the column holding the value of the
 # ratings atom
 RATING_VALUE_COL_NAME = 'rating'
+
+
+def df_to_command(constants_df, value_series, action_type, partition_name, predicate_name):
+	command_list = []
+	assert(constants_df.shape[0] == value_series.shape[0])
+	row_count = constants_df.shape[0]
+	col_count = constants_df.shape[1]
+	for idx, row in constants_df.iterrows():
+		constants_list = row.values
+		if value_series.loc[idx].shape[0] != 0:
+			value = value_series.loc[idx].values[0]
+		else:
+			value = None
+		command_list += [create_command_line(action_type, partition_name, predicate_name, constants_list, value)]
+	return command_list
 
 #################
 # create_obs_update_proportions returns list of proportions representing segment
@@ -78,7 +91,7 @@ def get_ratings_df(filename):
 # split_df_by_month takes in a list of (year, month) tuples
 # and returns a dictionary of dataframes
 # containing only reviews from each month.
-# 
+#
 # The key is the (year, month) tuple corresponding
 # to the separated dataframe.
 #
@@ -125,7 +138,7 @@ def join_df_slices(split, all_observed_segments):
 #################
 # get_avg_values(df, group_col, value_col) returns the average
 # value of value_col for all rows with a matching group_col value.
-# 
+#
 # We use this to calculate user/movie rating averages
 #################
 def get_avg_values(df, group_col, value_col):

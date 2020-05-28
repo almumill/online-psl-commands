@@ -3,6 +3,9 @@ import numpy as np
 import os
 
 from helpers import get_months_list, get_month_and_date, timestamp_matches_month, standardize_ratings
+from command_constructors.create_commands import df_to_command
+from command_constructors.command_utils import command_file_write
+import command_constructors.constants as constants
 from predicate_constructors.ratings import ratings_predicate
 from predicate_constructors.rated import rated_predicate
 from predicate_constructors.nmf_ratings import nmf_ratings_predicate
@@ -16,6 +19,9 @@ from predicate_constructors.sim_items import sim_items_predicate
 from predicate_constructors.target import target_predicate
 
 DATA_PATH = "../psl-datasets/movielens/data/"
+RATING_CONSTANT_COL_NAMES = ['userId', 'movieId']
+RATING_PREDICATE_NAME = 'rating'
+RATING_VALUE_COL_NAME = 'rating'
 
 
 def construct_movielens_predicates():
@@ -43,11 +49,11 @@ def construct_movielens_predicates():
         # get observations/truths for this split
         fold_ratings_df = ratings_df_dict[ordered_list_of_months[i]]
         observed_ratings_df, truth_ratings_df = split_by_timestamp(fold_ratings_df)
+
         observed_ratings_series, truth_ratings_series = standardize_ratings(observed_ratings_df, truth_ratings_df)
         user_df = user_df_dict[ordered_list_of_months[i]]
         movies_df = movies_df_dict[ordered_list_of_months[i]]
         partitioned_truth_ratings = parition_by_timestamp(truth_ratings_df)
-
         users = fold_ratings_df.userId.unique()
         movies = fold_ratings_df.movieId.unique()
 
@@ -65,12 +71,46 @@ def construct_movielens_predicates():
         ratings_predicate(observed_ratings_df, partition='obs', fold=str(i))
         aggregated_truths = pd.DataFrame()
         for time_step, truth_ratings_df_i in enumerate(partitioned_truth_ratings):
-            # construct the target for timestamp
+            # construct and write the target for timestamp
             aggregated_truths = aggregated_truths.append(truth_ratings_df_i, ignore_index=True)
-            ratings_predicate(aggregated_truths.loc[:, []], partition='targets_ts_' + str(time_step), fold=str(i))
-            ratings_predicate(aggregated_truths, partition='truth_ts_' + str(time_step), fold=str(i))
+            ratings_predicate(aggregated_truths.loc[:, RATING_CONSTANT_COL_NAMES.append(RATING_VALUE_COL_NAME)],
+                              partition='targets_ts_' + str(time_step), fold=str(i), write_value=False)
+            ratings_predicate(aggregated_truths.loc[:, RATING_CONSTANT_COL_NAMES.append(RATING_VALUE_COL_NAME)],
+                              partition='truth_ts_' + str(time_step), fold=str(i))
 
-            # write timestep command file
+            # write time step command file
+            cur_truth_ratings_constants = truth_ratings_df_i.loc[:, RATING_CONSTANT_COL_NAMES]
+            # TODO: double check logic about when to add targets.
+            #  Should the first timestep ground targets with observations or should they
+            #  be added as a command like the other timesteps.
+            targets_command_list = df_to_command(cur_truth_ratings_constants, cur_truth_ratings_constants.loc[:, []],
+                                                 constants.ADD, constants.TARGET, RATING_PREDICATE_NAME)
+
+            delete_target_command_list = []
+            add_observation_command_list = []
+            extra_commands = []
+
+            if time_step > 0:
+                prev_timestamp_ratings = partitioned_truth_ratings[time_step - 1]
+                delete_target_command_list += df_to_command(prev_timestamp_ratings.loc[:, RATING_CONSTANT_COL_NAMES],
+                                                            prev_timestamp_ratings.loc[:, []],
+                                                            constants.DELETE, constants.TARGET, RATING_PREDICATE_NAME)
+
+                add_observation_command_list += df_to_command(prev_timestamp_ratings.loc[:, RATING_CONSTANT_COL_NAMES],
+                                                              prev_timestamp_ratings.loc[:, RATING_VALUE_COL_NAME],
+                                                              constants.ADD, constants.OBS, RATING_PREDICATE_NAME)
+
+                extra_commands = [constants.WRITE_INFERRED_COMMAND]
+
+                if time_step == len(partitioned_truth_ratings) - 1:
+                    extra_commands += [constants.Close]
+
+            command_file_write(targets_command_list + delete_target_command_list + add_observation_command_list +
+                               extra_commands,
+                               "commands_ts_" + str(time_step))
+
+
+
 
         print("Did split #"+str(i))
     for i in range(len(ordered_list_of_months)):

@@ -4,8 +4,14 @@ sys.path.insert(0, '..')
 from helpers import write
 
 
-def ratings_predicate(ratings_df, partition='obs', fold='0', setting='eval'):
+def ratings_predicate(ratings_df, partition='obs', fold='0', setting='eval', write_value=True):
     """
     Ratings Predicates
     """
-    write(ratings_df, 'rating_' + partition, fold, setting)
+    ratings_series = ratings_df.loc[:, ['userId', 'movieId', 'rating']].set_index(
+        ['userId', 'movieId'])
+
+    if write_value:
+        write(ratings_series, 'rating_' + partition, fold, setting)
+    else:
+        write(ratings_series.loc[:, []], 'rating_' + partition, fold, setting)
