@@ -47,6 +47,7 @@ function standard_fixes() {
             cd "${dataset_dir}/cli"
 
             # Increase memory allocation.
+            echo "Increasing memory allocation"
             sed -i "s/java -jar/java -Xmx${JAVA_MEM_GB}G -Xms${JAVA_MEM_GB}G -jar/" run.sh
 
             # cp 2.2.1
@@ -56,6 +57,7 @@ function standard_fixes() {
             cp "${RESOURCES_DIR}/psl-cli-2.3.0-SNAPSHOT.jar" ./
 
             # Deactivate fetch psl step
+            echo "Deactivating fetch psl step"
             sed -i 's/^\(\s\+\)fetch_psl/\1# fetch_psl/' run.sh
 
         popd > /dev/null
@@ -63,10 +65,21 @@ function standard_fixes() {
     done
 }
 
+function create_postgres_db() {
+  echo "INFO: Creating psl_server postgres user and db..."
+  psql postgres -tAc "SELECT 1 FROM pg_roles WHERE rolname='psl_server'" | grep -q 1 || createuser -s psl_server
+  psql postgres -lqt | cut -d \| -f 1 | grep -qw psl_server || createdb psl_server
+
+  echo "INFO: Creating psl_client postgres user and db..."
+  psql postgres -tAc "SELECT 1 FROM pg_roles WHERE rolname='psl_client'" | grep -q 1 || createuser -s psl_client
+  psql postgres -lqt | cut -d \| -f 1 | grep -qw psl_client || createdb psl_client
+}
+
 function main() {
    trap exit SIGINT
 
    fetch_jar
+   create_postgres_db
    special_fixes
    standard_fixes
 

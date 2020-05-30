@@ -48,21 +48,58 @@ function run_inference() {
     modify_run_script_options "$dataset_directory" "$evaluator" "$trace_level"
 
     # modify data files to point to the fold
-    modify_data_files "$dataset_directory" "$fold"
+    modify_data_files "$dataset_directory" "$fold" "$time_step"
 
     # set the psl version for WL experiment
     set_psl_version "$PSL_VERSION" "$dataset_directory"
 
+    # deactivate runclientcommands
+    deactivate_client "$dataset_directory"
+
     # run evaluation
     run  "${cli_directory}" "$@"
 
+    # reactivate runclientcommands
+    reactivate_client "$dataset_directory"
+
     # modify data files to point back to the 0'th fold
-    modify_data_files "$dataset_directory" 0
+    modify_data_files "$dataset_directory" 0 "$time_step"
 
     # save inferred predicates
     mv "${cli_directory}/inferred-predicates" "${out_directory}/inferred-predicates"
 
     return 0
+}
+
+function deactivate_client() {
+    local dataset_directory=$1
+    local dataset_name
+    dataset_name=$(basename "${dataset_directory}")
+
+    # deactivate weight learning step in run script
+    pushd . > /dev/null
+        cd "${dataset_directory}/cli" || exit
+
+        # deactivate client.
+        sed -i 's/^\(\s\+\)runClientCommand/\1# runClientCommand/' run.sh
+
+    popd > /dev/null
+}
+
+
+function reactivate_client() {
+    local dataset_directory=$1
+    local dataset_name
+    dataset_name=$(basename "${dataset_directory}")
+
+    # deactivate weight learning step in run script
+    pushd . > /dev/null
+        cd "${dataset_directory}/cli" || exit
+
+        # reactivate client command.
+        sed -i 's/^\(\s\+\)# runClientCommand/\1runClientCommand/' run.sh
+
+    popd > /dev/null
 }
 
 function set_psl_version() {
@@ -106,6 +143,7 @@ function modify_run_script_options() {
 function modify_data_files() {
     local dataset_directory=$1
     local new_fold=$2
+    local time_step=$3
 
     local dataset_name
     dataset_name=$(basename "${dataset_directory}")
@@ -115,6 +153,19 @@ function modify_data_files() {
 
         # update the fold in the .data file
         sed -i -E "s/${dataset_name}\/[0-9]+\/eval/${dataset_name}\/${new_fold}\/eval/g" "${dataset_name}"-eval.data
+
+        # update the target set in the .data file
+        sed -i -E "s/eval\/rating_targets.*\.txt/eval\/rating_targets_ts_${time_step}.txt/g" "${dataset_name}"-eval.data
+
+        # update the truth set in the .data file
+        sed -i -E "s/eval\/rating_truth.*\.txt/eval\/rating_truth_ts_${time_step}.txt/g" "${dataset_name}"-eval.data
+
+        # update the rated obs set in the .data file
+        sed -i -E "s/eval\/rated_obs.*\.txt/eval\/rated_obs_ts_${time_step}.txt/g" "${dataset_name}"-eval.data
+
+        # update the target obs set in the .data file
+        sed -i -E "s/eval\/target_obs.*\.txt/eval\/target_obs_ts_${time_step}.txt/g" "${dataset_name}"-eval.data
+
     popd > /dev/null
 }
 

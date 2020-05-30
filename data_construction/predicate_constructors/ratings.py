@@ -8,8 +8,7 @@ def ratings_predicate(ratings_df, partition='obs', fold='0', setting='eval', wri
     """
     Ratings Predicates
     """
-    ratings_series = ratings_df.loc[:, ['userId', 'movieId', 'rating']].set_index(
-        ['userId', 'movieId'])
+    ratings_series = ratings_df.loc[:, ['rating']]
 
     if write_value:
         write(ratings_series, 'rating_' + partition, fold, setting)

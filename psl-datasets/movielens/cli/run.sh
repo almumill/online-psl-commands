@@ -8,9 +8,11 @@ readonly PSL_VERSION='2.3.0-SNAPSHOT'
 readonly JAR_PATH="./psl-cli-${PSL_VERSION}.jar"
 readonly FETCH_DATA_SCRIPT='../data/fetchData.sh'
 readonly BASE_NAME='movielens'
+readonly COMMAND_FILE='./commands.txt'
 
-readonly ADDITIONAL_PSL_OPTIONS='--int-ids  --postgres psl -D admmreasoner.initialconsensusvalue=ZERO -D log4j.threshold=TRACE'
-readonly ADDITIONAL_EVAL_OPTIONS='--infer --eval org.linqs.psl.evaluation.statistics.ContinuousEvaluator -D log4j.threshold=TRACE '
+readonly ADDITIONAL_PSL_OPTIONS='--int-ids  -D admmreasoner.initialconsensusvalue=ZERO -D log4j.threshold=TRACE'
+readonly ADDITIONAL_EVAL_OPTIONS='--infer=SGDOnlineInference --eval org.linqs.psl.evaluation.statistics.ContinuousEvaluator -D log4j.threshold=TRACE  -D inference.online=true --onlineClient --postgres psl_client '
+readonly ADDITIONAL_CLIENT_OPTIONS='-D inference.online=true --onlineClient --postgres psl_client '
 
 function main() {
    trap exit SIGINT
@@ -24,7 +26,8 @@ function main() {
    # fetch_psl
 
    # Run PSL
-   runEvaluation "$@"
+   # runEvaluation "$@"
+   runClientCommand "$@"
 }
 
 function getData() {
@@ -37,8 +40,17 @@ function getData() {
 }
 
 function runEvaluation() {
-   echo "Running PSL Inference on fold ${i}"
-   java -Xmx8G -Xms8G -jar "${JAR_PATH}" --model "${BASE_NAME}.psl" --data "${BASE_NAME}.data" --output inferred-predicates ${ADDITIONAL_EVAL_OPTIONS} ${ADDITIONAL_PSL_OPTIONS} "$@"
+   echo "Running PSL Inference"
+   java -Xmx8G -Xms8G -jar "${JAR_PATH}" --model "${BASE_NAME}.psl" --data "${BASE_NAME}-eval.data" --output inferred-predicates ${ADDITIONAL_EVAL_OPTIONS} ${ADDITIONAL_PSL_OPTIONS} "$@"
+   if [[ "$?" -ne 0 ]]; then
+      echo 'ERROR: Failed to run infernce'
+      exit 70
+   fi
+}
+
+function runClientCommand() {
+   echo "Issueing PSL Client Commands"
+   java -Xmx8G -Xms8G -jar "${JAR_PATH}" --model "${BASE_NAME}.psl" --data "${BASE_NAME}-eval.data" --output inferred-predicates ${ADDITIONAL_CLIENT_OPTIONS} ${ADDITIONAL_PSL_OPTIONS} "$@" < ${COMMAND_FILE}
    if [[ "$?" -ne 0 ]]; then
       echo 'ERROR: Failed to run infernce'
       exit 70

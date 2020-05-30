@@ -11,12 +11,12 @@ def sim_users_predicate(observed_ratings_df, truth_ratings_df, users, fold='0', 
     User Similarity Predicate: sim_cosine_users, built only from observed ratings
     """
     user_cosine_similarity_series = query_relevance_cosine_similarity(
-        observed_ratings_df.loc[:, ['userId', 'movieId', 'rating']],
+        observed_ratings_df.loc[:, ['rating']].reset_index(),
         'userId', 'movieId')
 
     # take top 50 for each user to define pairwise blocks
     user_cosine_similarity_block_frame = pd.DataFrame(index=users, columns=range(25))
-    for u in observed_ratings_df.userId.unique():
+    for u in observed_ratings_df.index.get_level_values(0).unique():
         user_cosine_similarity_block_frame.loc[u, :] = user_cosine_similarity_series.loc[u].nlargest(25).index
 
     # some users may not have rated any movie in common with another user

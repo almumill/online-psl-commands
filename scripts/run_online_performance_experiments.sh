@@ -8,7 +8,7 @@ readonly BASE_DIR="${THIS_DIR}/.."
 readonly BASE_OUT_DIR="${BASE_DIR}/results/online"
 
 #readonly ONLINE_METHODS='psl online_psl'
-readonly ONLINE_METHODS='psl'
+readonly ONLINE_METHODS='online_psl'
 readonly TRACE_LEVEL='TRACE'
 
 # set of currently supported examples
@@ -57,8 +57,22 @@ function run_example() {
         pushd . > /dev/null
             cd "${online_method}_scripts" || exit
 #            /usr/bin/time -v --output="${time_path}" ./run_inference.sh "${dataset_name}" "${fold}" "${time_step}" "${evaluator}" "${out_directory}" "${TRACE_LEVEL}" > "$out_path" 2> "$err_path"
-            ./run_inference.sh "${dataset_name}" "${fold}" "${time_step}" "${evaluator}" "${out_directory}" "${TRACE_LEVEL}" > "$out_path" 2> "$err_path"
+            if [ "${time_step}" = "0"  ] && [ "${online_method}" = "online_psl" ]; then
+              echo "Running online_psl in background"
+              ./run_inference.sh "${dataset_name}" "${fold}" "${time_step}" "${evaluator}" "${out_directory}" "${TRACE_LEVEL}" > "$out_path" 2> "$err_path" &
+              local server_pid=$!
+              # TODO: This is so server has time to start up before clients start connecting
+              #  (Charles) clients should have their own timeout and we should not have to sleep here
+              sleep 10
+            else
+              ./run_inference.sh "${dataset_name}" "${fold}" "${time_step}" "${evaluator}" "${out_directory}" "${TRACE_LEVEL}" > "$out_path" 2> "$err_path"
+            fi
         popd > /dev/null
+    fi
+
+    if [ "${time_step}" = "$(( ${DATASET_TIME_STEPS[${dataset_name}]} - 1 ))" ] && [ "${online_method}" = "online_psl" ]; then
+      echo "Waiting on server for fold ${fold}"
+      wait ${server_pid}
     fi
 
     return 0

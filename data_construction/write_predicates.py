@@ -21,6 +21,8 @@ from predicate_constructors.target import target_predicate
 DATA_PATH = "../psl-datasets/movielens/data/"
 RATING_CONSTANT_COL_NAMES = ['userId', 'movieId']
 RATING_PREDICATE_NAME = 'rating'
+RATED_PREDICATE_NAME = 'rated'
+TARGET_PREDICATE_NAME = 'target'
 RATING_VALUE_COL_NAME = 'rating'
 
 
@@ -46,73 +48,83 @@ def construct_movielens_predicates():
     for i in range(len(ordered_list_of_months)):
         if not os.path.exists(DATA_PATH + '/movielens/' + str(i) + '/eval'):
             os.makedirs(DATA_PATH + '/movielens/' + str(i) + '/eval')
+
         # get observations/truths for this split
         fold_ratings_df = ratings_df_dict[ordered_list_of_months[i]]
         observed_ratings_df, truth_ratings_df = split_by_timestamp(fold_ratings_df)
-
-        observed_ratings_series, truth_ratings_series = standardize_ratings(observed_ratings_df, truth_ratings_df)
+        standardized_observed_ratings_df, standardized_truth_ratings_df = standardize_ratings(observed_ratings_df, truth_ratings_df)
         user_df = user_df_dict[ordered_list_of_months[i]]
         movies_df = movies_df_dict[ordered_list_of_months[i]]
-        partitioned_truth_ratings = parition_by_timestamp(truth_ratings_df)
-        users = fold_ratings_df.userId.unique()
-        movies = fold_ratings_df.movieId.unique()
+        partitioned_truth_ratings = parition_by_timestamp(standardized_truth_ratings_df)
+        users = fold_ratings_df.reset_index().userId.unique()
+        movies = fold_ratings_df.reset_index().movieId.unique()
 
-        nmf_ratings_predicate(observed_ratings_df, truth_ratings_df, str(i))
-        rated_predicate(observed_ratings_df, truth_ratings_df, str(i))
-        item_predicate(observed_ratings_df, truth_ratings_df, str(i))
-        user_predicate(observed_ratings_df, truth_ratings_df, str(i))
-        target_predicate(truth_ratings_df, str(i))
-        average_item_rating_predicate(observed_ratings_df, truth_ratings_df, str(i))
-        average_user_rating_predicate(observed_ratings_df, truth_ratings_df, str(i))
+        # construct predicates that are static for fold
+        nmf_ratings_predicate(standardized_observed_ratings_df, standardized_truth_ratings_df, str(i))
+        item_predicate(standardized_observed_ratings_df, standardized_truth_ratings_df, str(i))
+        user_predicate(standardized_observed_ratings_df, standardized_truth_ratings_df, str(i))
+        average_item_rating_predicate(standardized_observed_ratings_df, standardized_truth_ratings_df, str(i))
+        average_user_rating_predicate(standardized_observed_ratings_df, standardized_truth_ratings_df, str(i))
         sim_content_predicate(movies_df, str(i))
-        sim_items_predicate(observed_ratings_df, truth_ratings_df, movies, str(i))
-        sim_users_predicate(observed_ratings_df, truth_ratings_df, users, str(i))
+        sim_items_predicate(standardized_observed_ratings_df, standardized_truth_ratings_df, movies, str(i))
+        sim_users_predicate(standardized_observed_ratings_df, standardized_truth_ratings_df, users, str(i))
 
-        ratings_predicate(observed_ratings_df, partition='obs', fold=str(i))
+        # construct predicates that are dynamic with time
+        ratings_predicate(standardized_observed_ratings_df, partition='obs', fold=str(i))
         aggregated_truths = pd.DataFrame()
         for time_step, truth_ratings_df_i in enumerate(partitioned_truth_ratings):
-            # construct and write the target for timestamp
-            aggregated_truths = aggregated_truths.append(truth_ratings_df_i, ignore_index=True)
-            ratings_predicate(aggregated_truths.loc[:, RATING_CONSTANT_COL_NAMES.append(RATING_VALUE_COL_NAME)],
-                              partition='targets_ts_' + str(time_step), fold=str(i), write_value=False)
-            ratings_predicate(aggregated_truths.loc[:, RATING_CONSTANT_COL_NAMES.append(RATING_VALUE_COL_NAME)],
-                              partition='truth_ts_' + str(time_step), fold=str(i))
+            aggregated_truths = aggregated_truths.append(truth_ratings_df_i, ignore_index=False)
 
-            # write time step command file
-            cur_truth_ratings_constants = truth_ratings_df_i.loc[:, RATING_CONSTANT_COL_NAMES]
-            # TODO: double check logic about when to add targets.
-            #  Should the first timestep ground targets with observations or should they
-            #  be added as a command like the other timesteps.
-            targets_command_list = df_to_command(cur_truth_ratings_constants, cur_truth_ratings_constants.loc[:, []],
-                                                 constants.ADD, constants.TARGET, RATING_PREDICATE_NAME)
+            # construct and write the observations for timestamp
+            rated_predicate(standardized_observed_ratings_df, aggregated_truths,
+                            partition='obs_ts_' + str(time_step), fold=str(i))
+            target_predicate(aggregated_truths, partition='obs_ts_' + str(time_step), fold=str(i))
+
+            # construct and write the target for timestamp
+            ratings_predicate(aggregated_truths, partition='targets_ts_' + str(time_step), fold=str(i),
+                              write_value=False)
+            ratings_predicate(aggregated_truths, partition='truth_ts_' + str(time_step), fold=str(i))
 
             delete_target_command_list = []
+            add_targets_command_list = []
             add_observation_command_list = []
-            extra_commands = []
+            extra_commands = [constants.WRITE_INFERRED_COMMAND]
 
             if time_step > 0:
-                prev_timestamp_ratings = partitioned_truth_ratings[time_step - 1]
+                # write time step command file
+                cur_truth_ratings_args = truth_ratings_df_i.reset_index().loc[:, RATING_CONSTANT_COL_NAMES]
+
+                # add and delete ratings atoms
+                add_targets_command_list = df_to_command(cur_truth_ratings_args, cur_truth_ratings_args.loc[:, []],
+                                                         constants.ADD, constants.TARGET, RATING_PREDICATE_NAME)
+                prev_timestamp_ratings = partitioned_truth_ratings[time_step - 1].reset_index()
                 delete_target_command_list += df_to_command(prev_timestamp_ratings.loc[:, RATING_CONSTANT_COL_NAMES],
                                                             prev_timestamp_ratings.loc[:, []],
                                                             constants.DELETE, constants.TARGET, RATING_PREDICATE_NAME)
-
                 add_observation_command_list += df_to_command(prev_timestamp_ratings.loc[:, RATING_CONSTANT_COL_NAMES],
-                                                              prev_timestamp_ratings.loc[:, RATING_VALUE_COL_NAME],
+                                                              prev_timestamp_ratings.loc[:, [RATING_VALUE_COL_NAME]],
                                                               constants.ADD, constants.OBS, RATING_PREDICATE_NAME)
 
-                extra_commands = [constants.WRITE_INFERRED_COMMAND]
+                # add rated atoms
+                new_rated_df = truth_ratings_df_i.reset_index()
+                add_observation_command_list += df_to_command(new_rated_df.loc[:, RATING_CONSTANT_COL_NAMES],
+                                                              new_rated_df.loc[:, [RATING_VALUE_COL_NAME]].clip(1, 1),
+                                                              constants.ADD, constants.OBS, RATED_PREDICATE_NAME)
+
+                # add target atoms
+                add_observation_command_list += df_to_command(new_rated_df.loc[:, RATING_CONSTANT_COL_NAMES],
+                                                              new_rated_df.loc[:, [RATING_VALUE_COL_NAME]].clip(1, 1),
+                                                              constants.ADD, constants.OBS, TARGET_PREDICATE_NAME)
 
                 if time_step == len(partitioned_truth_ratings) - 1:
-                    extra_commands += [constants.Close]
+                    extra_commands += [constants.CLOSE_COMMAND]
 
-            command_file_write(targets_command_list + delete_target_command_list + add_observation_command_list +
-                               extra_commands,
-                               "commands_ts_" + str(time_step))
+            extra_commands += [constants.EXIT_COMMAND]
+            command_file_write(add_targets_command_list + delete_target_command_list + add_observation_command_list +
+                               extra_commands, str(i), 'eval',
+                               "commands_ts_" + str(time_step) + '.txt')
 
-
-
-
-        print("Did split #"+str(i))
+        print("Did fold #"+str(i))
     for i in range(len(ordered_list_of_months)):
         print("Fold #"+str(i)+" -- " + str(ordered_list_of_months[i]))
 
@@ -125,7 +137,7 @@ def split_by_timestamp(ratings_df, train_proportion=0.8):
 
 def parition_by_timestamp(ratings_df, n_paritions=10):
     sorted_frame = ratings_df.sort_values(by='timestamp')
-    integer_paritions = np.split(np.arange(sorted_frame.shape[0]), n_paritions)
+    integer_paritions = np.array_split(np.arange(sorted_frame.shape[0]), n_paritions)
     return [sorted_frame.iloc[i] for i in integer_paritions]
 
 
@@ -150,6 +162,7 @@ def load_dataframes():
     ratings_df.columns = ['userId', 'movieId', 'rating', 'timestamp']
     ratings_df = ratings_df.astype({'userId': str, 'movieId': str})
     ratings_df.rating = ratings_df.rating / ratings_df.rating.max()
+    ratings_df = ratings_df.set_index(['userId', 'movieId'])
 
     user_df = pd.read_csv(DATA_PATH + '/ml-100k/u.user', sep='|', header=None, encoding="ISO-8859-1")
     user_df.columns = ['userId', 'age', 'gender', 'occupation', 'zip']
@@ -175,8 +188,8 @@ def split_by_months(movies_df, ratings_df, users_df):
 
         # get user/item dfs with only users/items
         # that actually show up in the data
-        user_list = [int(x) for x in ratings_df_temp['userId'].unique()]
-        item_list = [int(x) for x in ratings_df_temp['movieId'].unique()]
+        user_list = [int(x) for x in ratings_df_temp.index.get_level_values(0).unique()]
+        item_list = [int(x) for x in ratings_df_temp.index.get_level_values(1).unique()]
 
         users_df_temp = users_df.loc[user_list]
         movies_df_temp = movies_df.loc[item_list]
