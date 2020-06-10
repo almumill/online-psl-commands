@@ -18,6 +18,7 @@ def nmf_ratings_predicate(observed_ratings_df, truth_ratings_df, fold='0', setti
     predictions = pd.DataFrame(nmf_model.inverse_transform(transformed_matrix), index=observed_user_item_matrix.index,
                                columns=observed_user_item_matrix.columns)
 
+    # make predictions for the user item pairs in the truth frame
     predictions = predictions.reindex(truth_user_item_matrix.index, columns=truth_user_item_matrix.columns,
                                       fill_value=0.5).stack()
 

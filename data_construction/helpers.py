@@ -149,9 +149,6 @@ def standardize_ratings(observed_ratings_df, truth_ratings_df):
             truth_ratings_series.loc[user, :] = ((truth_ratings_series.loc[user, :] - mean_of_means)
                                                  / (4 * mean_of_stds)) + 0.5
 
-    print("truth_ratings_series.isna().sum()")
-    print(truth_ratings_series.isna().sum())
-
     truth_ratings_series = truth_ratings_series.clip(lower=0, upper=1)
     standardized_truth_ratings_df.loc[:, "rating"] = truth_ratings_series
 

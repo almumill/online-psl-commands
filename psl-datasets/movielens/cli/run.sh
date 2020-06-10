@@ -10,8 +10,8 @@ readonly FETCH_DATA_SCRIPT='../data/fetchData.sh'
 readonly BASE_NAME='movielens'
 readonly COMMAND_FILE='./commands.txt'
 
-readonly ADDITIONAL_PSL_OPTIONS='--int-ids  -D admmreasoner.initialconsensusvalue=ZERO -D log4j.threshold=TRACE'
-readonly ADDITIONAL_EVAL_OPTIONS='--infer=SGDOnlineInference --eval org.linqs.psl.evaluation.statistics.ContinuousEvaluator -D log4j.threshold=TRACE  -D inference.online=true --onlineClient --postgres psl_client '
+readonly ADDITIONAL_PSL_OPTIONS='--int-ids  -D admmreasoner.initialconsensusvalue=ZERO -D log4j.threshold=TRACE -D log4j.threshold=info'
+readonly ADDITIONAL_EVAL_OPTIONS='--infer=SGDOnlineInference --eval org.linqs.psl.evaluation.statistics.ContinuousEvaluator  -D inference.online=true --onlineClient --postgres psl_client '
 readonly ADDITIONAL_CLIENT_OPTIONS='-D inference.online=true --onlineClient --postgres psl_client '
 
 function main() {
@@ -26,7 +26,7 @@ function main() {
    # fetch_psl
 
    # Run PSL
-   # runEvaluation "$@"
+   runEvaluation "$@"
    runClientCommand "$@"
 }
 

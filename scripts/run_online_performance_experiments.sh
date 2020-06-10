@@ -7,9 +7,8 @@ readonly THIS_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 readonly BASE_DIR="${THIS_DIR}/.."
 readonly BASE_OUT_DIR="${BASE_DIR}/results/online"
 
-#readonly ONLINE_METHODS='psl online_psl'
-readonly ONLINE_METHODS='online_psl'
-readonly TRACE_LEVEL='TRACE'
+readonly ONLINE_METHODS='psl online_psl'
+readonly TRACE_LEVEL='info'
 
 # set of currently supported examples
 readonly SUPPORTED_DATASETS='movielens'
@@ -21,10 +20,10 @@ DATASET_EVALUATORS[movielens]='Continuous'
 # Evaluators to be use for each example
 # todo: (Charles D.) just read this information from psl example data directory rather than hardcoding
 declare -A DATASET_FOLDS
-DATASET_FOLDS[movielens]=8
+DATASET_FOLDS[movielens]=2
 
 declare -A DATASET_TIME_STEPS
-DATASET_TIME_STEPS[movielens]=10
+DATASET_TIME_STEPS[movielens]=20
 
 
 function run_example() {
@@ -37,7 +36,7 @@ function run_example() {
     local dataset_name
     dataset_name=$(basename "${dataset_directory}")
 
-    out_directory="${BASE_OUT_DIR}/${online_method}/performance_study/${dataset_name}/${evaluator}/${fold}/${time_step}"
+    out_directory="${BASE_OUT_DIR}/performance_study/${online_method}/${dataset_name}/${evaluator}/${fold}/${time_step}"
 
     # Only make a new out directory if it does not already exist
     [[ -d "$out_directory" ]] || mkdir -p "$out_directory"
@@ -56,14 +55,15 @@ function run_example() {
         # call inference script for online method type
         pushd . > /dev/null
             cd "${online_method}_scripts" || exit
-#            /usr/bin/time -v --output="${time_path}" ./run_inference.sh "${dataset_name}" "${fold}" "${time_step}" "${evaluator}" "${out_directory}" "${TRACE_LEVEL}" > "$out_path" 2> "$err_path"
             if [ "${time_step}" = "0"  ] && [ "${online_method}" = "online_psl" ]; then
               echo "Running online_psl in background"
               ./run_inference.sh "${dataset_name}" "${fold}" "${time_step}" "${evaluator}" "${out_directory}" "${TRACE_LEVEL}" > "$out_path" 2> "$err_path" &
-              local server_pid=$!
               # TODO: This is so server has time to start up before clients start connecting
               #  (Charles) clients should have their own timeout and we should not have to sleep here
-              sleep 10
+              # also there is a race between timestep 0 and timestep 1 for issueing the first command. the sleep is
+              # longer here and it should be okay but this is not safe
+              sleep 16
+              local server_pid=$!
             else
               ./run_inference.sh "${dataset_name}" "${fold}" "${time_step}" "${evaluator}" "${out_directory}" "${TRACE_LEVEL}" > "$out_path" 2> "$err_path"
             fi

@@ -13,8 +13,6 @@ def command_file_write(command_list, fold, setting, file_name):
 	if not os.path.exists(path):
 		os.makedirs(path)
 
-	print(path)
-
 	with open(os.path.join(path, file_name), 'w') as writer:
 		writer.write(command_str)
 

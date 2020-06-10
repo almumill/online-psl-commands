@@ -56,8 +56,14 @@ function run_inference() {
     # deactivate runclientcommands
     deactivate_client "$dataset_directory"
 
+    # reactivate runclientcommands
+    reactivate_evaluation "$dataset_directory"
+
     # run evaluation
     run  "${cli_directory}" "$@"
+
+    # deactivate runclientcommands
+    deactivate_evaluation "$dataset_directory"
 
     # reactivate runclientcommands
     reactivate_client "$dataset_directory"
@@ -69,6 +75,36 @@ function run_inference() {
     mv "${cli_directory}/inferred-predicates" "${out_directory}/inferred-predicates"
 
     return 0
+}
+
+function reactivate_evaluation() {
+    local dataset_directory=$1
+    local dataset_name
+    dataset_name=$(basename "${dataset_directory}")
+
+    # deactivate weight learning step in run script
+    pushd . > /dev/null
+        cd "${dataset_directory}/cli" || exit
+
+        # deactivate weight learning.
+        sed -i 's/^\(\s\+\)# runEvaluation/\1runEvaluation/' run.sh
+
+    popd > /dev/null
+}
+
+function deactivate_evaluation() {
+    local dataset_directory=$1
+    local dataset_name
+    dataset_name=$(basename "${dataset_directory}")
+
+    # deactivate weight learning step in run script
+    pushd . > /dev/null
+        cd "${dataset_directory}/cli" || exit
+
+        # deactivate weight learning.
+        sed -i 's/^\(\s\+\)runEvaluation/\1# runEvaluation/' run.sh
+
+    popd > /dev/null
 }
 
 function deactivate_client() {
@@ -133,10 +169,10 @@ function modify_run_script_options() {
         cd "${dataset_directory}/cli" || exit
 
         # set the ADDITIONAL_PSL_OPTIONS
-        sed -i "s/^readonly ADDITIONAL_PSL_OPTIONS='.*'$/readonly ADDITIONAL_PSL_OPTIONS='${int_ids_options} ${STANDARD_PSL_OPTIONS}'/" run.sh
+        sed -i "s/^readonly ADDITIONAL_PSL_OPTIONS='.*'$/readonly ADDITIONAL_PSL_OPTIONS='${int_ids_options} ${STANDARD_PSL_OPTIONS} -D log4j.threshold=${trace_level}'/" run.sh
 
         # set the ADDITIONAL_EVAL_OPTIONS
-        sed -i "s/^readonly ADDITIONAL_EVAL_OPTIONS='.*'$/readonly ADDITIONAL_EVAL_OPTIONS='--infer --eval org.linqs.psl.evaluation.statistics.${objective}Evaluator -D log4j.threshold=${trace_level} ${DATASET_OPTIONS[${dataset_name}]}'/" run.sh
+        sed -i "s/^readonly ADDITIONAL_EVAL_OPTIONS='.*'$/readonly ADDITIONAL_EVAL_OPTIONS='--infer=SGDInference --eval org.linqs.psl.evaluation.statistics.${objective}Evaluator ${DATASET_OPTIONS[${dataset_name}]}'/" run.sh
     popd > /dev/null
 }
 
@@ -159,6 +195,9 @@ function modify_data_files() {
 
         # update the truth set in the .data file
         sed -i -E "s/eval\/rating_truth.*\.txt/eval\/rating_truth_ts_${time_step}.txt/g" "${dataset_name}"-eval.data
+
+        # update the rating obs set in the .data file
+        sed -i -E "s/eval\/rating_obs.*\.txt/eval\/rating_obs_ts_${time_step}.txt/g" "${dataset_name}"-eval.data
 
         # update the rated obs set in the .data file
         sed -i -E "s/eval\/rated_obs.*\.txt/eval\/rated_obs_ts_${time_step}.txt/g" "${dataset_name}"-eval.data

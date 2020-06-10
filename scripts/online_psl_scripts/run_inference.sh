@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
 # runs psl weight learning,
+# TODO: (Charles) Merge this with the PSL inference script. Lots of repeated code
 
 readonly THIS_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 readonly BASE_DATASET_DIR="${THIS_DIR}/../../psl-datasets"
@@ -44,11 +45,24 @@ function run_inference() {
     local out_directory=$5
     local trace_level=$6
 
+    shift 6
+
     if [ "$time_step" = "0" ]; then
       echo "Running Online Server"
-      run_online_server "$@"
-    else
-      run_online_client "$@"
+      start_online_server "$dataset_name" "$fold" "$time_step" "$evaluator" "$out_directory" "$trace_level" "$@" &
+      local server_pid=$!
+      # TODO: This is so server has time to start up before clients start connecting
+      #  (Charles) clients should have their own timeout and we should not have to sleep here
+      sleep 8
+    fi
+
+    echo "Running online client for fold ${fold} -- time_step ${time_step}"
+    run_online_client "$dataset_name" "$fold" "$time_step" "$evaluator" "$out_directory" "$trace_level" "$@"
+
+    if [ "$time_step" = "0" ]; then
+        echo "Waiting on Online Server"
+        wait ${server_pid}
+        echo "Finished Waiting on Online Server"
     fi
 
     return 0
@@ -62,8 +76,6 @@ function run_online_client() {
     local out_directory=$5
     local trace_level=$6
 
-    shift 6
-
     local dataset_directory="${BASE_DATASET_DIR}/${dataset_name}"
     local cli_directory="${dataset_directory}/cli"
 
@@ -71,7 +83,7 @@ function run_online_client() {
     modify_run_script_options "$dataset_directory" "$evaluator" "$trace_level" "$ONLINE_CLIENT_PSL_OPTIONS"
 
     # modify data files to point to the fold
-    provide_command_file "$dataset_directory" "$fold" "$time_step" "${out_directory}"
+    provide_command_file "$dataset_directory" "$fold" "$time_step" "$out_directory"
 
     # reactivate runclientcommands
     reactivate_client "$dataset_directory"
@@ -86,15 +98,13 @@ function run_online_client() {
     reactivate_evaluation "$dataset_directory"
 }
 
-function run_online_server() {
+function start_online_server() {
     local dataset_name=$1
     local fold=$2
     local time_step=$3
     local evaluator=$4
     local out_directory=$5
     local trace_level=$6
-
-    shift 6
 
     local dataset_directory="${BASE_DATASET_DIR}/${dataset_name}"
     local cli_directory="${dataset_directory}/cli"
@@ -108,7 +118,7 @@ function run_online_server() {
     # set the psl version for WL experiment
     set_psl_version "$PSL_VERSION" "$dataset_directory"
 
-    # reactivate runclientcommands
+    # reactivate evaluation
     reactivate_evaluation "$dataset_directory"
 
     # deactivate runclientcommands
@@ -156,10 +166,10 @@ function modify_run_script_options() {
         cd "${dataset_directory}/cli" || exit
 
         # set the ADDITIONAL_PSL_OPTIONS
-        sed -i "s/^readonly ADDITIONAL_PSL_OPTIONS='.*'$/readonly ADDITIONAL_PSL_OPTIONS='${int_ids_options} ${STANDARD_PSL_OPTIONS}'/" run.sh
+        sed -i "s/^readonly ADDITIONAL_PSL_OPTIONS='.*'$/readonly ADDITIONAL_PSL_OPTIONS='${int_ids_options} ${STANDARD_PSL_OPTIONS} -D log4j.threshold=${trace_level}'/" run.sh
 
         # set the ADDITIONAL_EVAL_OPTIONS
-        sed -i "s/^readonly ADDITIONAL_EVAL_OPTIONS='.*'$/readonly ADDITIONAL_EVAL_OPTIONS='--infer=SGDOnlineInference --eval org.linqs.psl.evaluation.statistics.${objective}Evaluator -D log4j.threshold=${trace_level} ${DATASET_OPTIONS[${dataset_name}]} ${online_options}'/" run.sh
+        sed -i "s/^readonly ADDITIONAL_EVAL_OPTIONS='.*'$/readonly ADDITIONAL_EVAL_OPTIONS='--infer=SGDOnlineInference --eval org.linqs.psl.evaluation.statistics.${objective}Evaluator ${DATASET_OPTIONS[${dataset_name}]} ${online_options}'/" run.sh
 
         # set the ADDITIONAL_CLIENT_OPTIONS
         sed -i "s/^readonly ADDITIONAL_CLIENT_OPTIONS='.*'$/readonly ADDITIONAL_CLIENT_OPTIONS='${online_options}'/" run.sh
@@ -245,7 +255,9 @@ function provide_command_file() {
     pushd . > /dev/null
         cd "${command_directory}" || exit
 
-        sed -i "s+WriteInferredPredicates.*$+WriteInferredPredicates\\t${output_directory}+" "commands_ts_${time_step}.txt"
+        echo "Setting WriteInferredPredicates to ${output_directory} for commands_ts_${time_step}.txt"
+
+        sed -i "s+WriteInferredPredicates.*$+WriteInferredPredicates\\t${output_directory}/inferred-predicates+" "commands_ts_${time_step}.txt"
 
     popd > /dev/null
 
@@ -273,6 +285,9 @@ function modify_data_files() {
 
         # update the truth set in the .data file
         sed -i -E "s/eval\/rating_truth.*\.txt/eval\/rating_truth_ts_${time_step}.txt/g" "${dataset_name}"-eval.data
+
+        # update the observed set in the .data file
+        sed -i -E "s/eval\/rating_obs.*\.txt/eval\/rating_obs.txt/g" "${dataset_name}"-eval.data
 
         # update the rated obs set in the .data file
         sed -i -E "s/eval\/rated_obs.*\.txt/eval\/rated_obs_ts_${time_step}.txt/g" "${dataset_name}"-eval.data
