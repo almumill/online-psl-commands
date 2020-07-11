@@ -71,8 +71,9 @@ function run_inference() {
     # modify data files to point back to the 0'th fold
     modify_data_files "$dataset_directory" 0 "$time_step"
 
-    # save inferred predicates
+    # save inferred predicates and profile output
     mv "${cli_directory}/inferred-predicates" "${out_directory}/inferred-predicates"
+#    mv "${cli_directory}/" "${out_directory}/"
 
     return 0
 }
@@ -172,7 +173,7 @@ function modify_run_script_options() {
         sed -i "s/^readonly ADDITIONAL_PSL_OPTIONS='.*'$/readonly ADDITIONAL_PSL_OPTIONS='${int_ids_options} ${STANDARD_PSL_OPTIONS} -D log4j.threshold=${trace_level}'/" run.sh
 
         # set the ADDITIONAL_EVAL_OPTIONS
-        sed -i "s/^readonly ADDITIONAL_EVAL_OPTIONS='.*'$/readonly ADDITIONAL_EVAL_OPTIONS='--infer=SGDInference --eval org.linqs.psl.evaluation.statistics.${objective}Evaluator ${DATASET_OPTIONS[${dataset_name}]}'/" run.sh
+        sed -i "s/^readonly ADDITIONAL_EVAL_OPTIONS='.*'$/readonly ADDITIONAL_EVAL_OPTIONS='--infer --eval org.linqs.psl.evaluation.statistics.${objective}Evaluator ${DATASET_OPTIONS[${dataset_name}]}'/" run.sh
     popd > /dev/null
 }
 

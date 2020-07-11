@@ -10,7 +10,7 @@ def sim_content_predicate(movies_df, fold='0', setting='eval'):
     Ratings Predicates
     """
 
-    movie_genres_df = movies_df.loc[:, ["unknown", "Action", "Adventure", "Animation", "Children's", "Comedy", "Crime",
+    movie_genres_df = movies_df.loc[:, ["Action", "Adventure", "Animation", "Children's", "Comedy", "Crime",
                                         "Documentary", "Drama", "Fantasy", "Film-Noir", "Horror", "Musical", "Mystery",
                                         "Romance", "Sci-Fi", "Thriller", "War", "Western"]]
 

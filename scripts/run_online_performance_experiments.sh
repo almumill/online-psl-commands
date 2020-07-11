@@ -7,8 +7,8 @@ readonly THIS_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 readonly BASE_DIR="${THIS_DIR}/.."
 readonly BASE_OUT_DIR="${BASE_DIR}/results/online"
 
-readonly ONLINE_METHODS='psl online_psl'
-readonly TRACE_LEVEL='info'
+readonly ONLINE_METHODS='online_psl psl'
+readonly TRACE_LEVEL='TRACE'
 
 # set of currently supported examples
 readonly SUPPORTED_DATASETS='movielens'
@@ -20,7 +20,7 @@ DATASET_EVALUATORS[movielens]='Continuous'
 # Evaluators to be use for each example
 # todo: (Charles D.) just read this information from psl example data directory rather than hardcoding
 declare -A DATASET_FOLDS
-DATASET_FOLDS[movielens]=2
+DATASET_FOLDS[movielens]=5
 
 declare -A DATASET_TIME_STEPS
 DATASET_TIME_STEPS[movielens]=20

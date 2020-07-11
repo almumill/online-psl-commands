@@ -33,11 +33,11 @@ def query_relevance_cosine_similarity(relevance_df, query_index, item_index, fil
 
 
 def cosine_similarity_frame_from_relevance(data_frame, fill=True):
-    if fill is True:
-        return pairwise_distances(data_frame, metric=cosine_similarity_from_relevance_arrays,
+    if fill:
+        return pairwise_distances(data_frame.fillna(0), metric='cosine',
                                   force_all_finite='allow-nan')
     else:
-        return pairwise_distances(data_frame.fillna(0), metric=cosine_similarity_from_relevance_arrays,
+        return pairwise_distances(data_frame, metric=cosine_similarity_from_relevance_arrays,
                                   force_all_finite='allow-nan')
 
 
@@ -73,7 +73,7 @@ def get_months_list(ratings_df):
         timestamp_tuple = get_month_and_date(ts)
         try:
             months_histogram[timestamp_tuple] += 1
-        except:
+        except KeyError as e:
             months_histogram[timestamp_tuple] = 1
 
     # sort by year and then month
@@ -85,7 +85,6 @@ def get_months_list(ratings_df):
         set_of_years.add(tuple[0])
 
     list_of_years = sorted(set_of_years)
-    tuples_per_year = dict({})
 
     # within each year, sort by month and construct a final list
     final_list = []
@@ -103,10 +102,10 @@ def timestamp_matches_month(ratings_df, time_tuple):
     """
     bool_array = []
     for row in ratings_df.iterrows():
-         if get_month_and_date(row[1]['timestamp']) == time_tuple:
-             bool_array += [True]
-         else:
-             bool_array += [False]
+        if get_month_and_date(row[1]['timestamp']) == time_tuple:
+            bool_array += [True]
+        else:
+            bool_array += [False]
     return bool_array
 
 
