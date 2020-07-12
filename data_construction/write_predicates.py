@@ -39,6 +39,7 @@ def construct_movielens_predicates():
     """
     movies_df, ratings_df, user_df = load_dataframes()
     movies_df, ratings_df, user_df = filter_dataframes(movies_df, ratings_df, user_df)
+    # TODO: Random samples of 70%
     ratings_df_list = partition_by_timestamp(ratings_df)
 
     for fold, fold_ratings_df in enumerate(ratings_df_list):
@@ -53,6 +54,7 @@ def construct_movielens_predicates():
         fold_movies_df = movies_df.loc[fold_ratings_df.index.get_level_values('movieId').unique()]
 
         # get observations/truth split for this fold
+        # TODO: Train Validate Test split for weight.
         fold_ratings_df_list = partition_by_timestamp(fold_ratings_df, n_partitions=3)
         observed_ratings_df = fold_ratings_df_list[0]
         truth_ratings_df = pd.concat(fold_ratings_df_list[1:])
@@ -138,6 +140,7 @@ def construct_static_predicates(observed_ratings_df, truth_ratings_df, movies_df
     nmf_ratings_predicate(observed_ratings_df, truth_ratings_df, str(fold))
     nb_ratings_predicate(observed_ratings_df, truth_ratings_df, users_df, movies_df, str(fold))
 
+    # TODO (Alex): Should be dynamic
     average_item_rating_predicate(observed_ratings_df, truth_ratings_df, str(fold))
     average_user_rating_predicate(observed_ratings_df, truth_ratings_df, str(fold))
 
