@@ -3,7 +3,6 @@
 
 # data
 ml-100k
-*eval*
 
 # Intellij meta data
 .idea
@@ -13,4 +12,5 @@ ml-100k
 
 results
 
-psl-datasets
+psl-datasets/movielens/data
+commands.txt
