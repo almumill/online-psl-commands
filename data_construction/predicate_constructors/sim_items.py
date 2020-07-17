@@ -6,9 +6,9 @@ from helpers import query_relevance_cosine_similarity
 from helpers import write
 
 
-def sim_items_predicate(observed_ratings_df, truth_ratings_df, movies, fold='0', setting='eval'):
+def cosine_sim_items_series(observed_ratings_df, movies):
     """
-    Item Similarity Predicate: sim_cosine_items, built only from observed ratings
+    Item Similarity Series generation
     """
     item_cosine_similarity_series = query_relevance_cosine_similarity(
         observed_ratings_df.loc[:, ['rating']].reset_index(),
@@ -26,4 +26,10 @@ def sim_items_predicate(observed_ratings_df, truth_ratings_df, movies, fold='0',
     item_cosine_similarity_block_index = pd.MultiIndex.from_arrays([item_index, flattened_frame])
     item_cosine_similarity_block_series = pd.Series(data=1, index=item_cosine_similarity_block_index)
 
-    write(item_cosine_similarity_block_series, 'sim_items_obs', fold, setting)
+    return item_cosine_similarity_block_series
+
+def sim_items_predicate(sim_items_series, time_step, fold='0', setting='eval'):
+    """
+    write the sim_items series into predicate file form
+    """
+    write(sim_items_series, 'sim_items_obs_ts_'+str(time_step), fold, setting)

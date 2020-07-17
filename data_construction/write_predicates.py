@@ -2,19 +2,19 @@ import pandas as pd
 import numpy as np
 import os
 
-from command_constructors.create_commands import df_to_command
-from command_constructors.command_utils import command_file_write
+from command_constructors.create_commands import df_to_command, series_to_dynamic_commands, update_seen_atoms
+from command_constructors.command_utils import command_file_write, create_command_line
 import command_constructors.constants as constants
 from predicate_constructors.ratings import ratings_predicate
 from predicate_constructors.rated import rated_predicate
 from predicate_constructors.nmf_ratings import nmf_ratings_predicate
 from predicate_constructors.nb_ratings import nb_ratings_predicate
 from predicate_constructors.sim_content import sim_content_predicate
-from predicate_constructors.avg_item_rating import average_item_rating_predicate
-from predicate_constructors.avg_user_rating import average_user_rating_predicate
-from predicate_constructors.sim_users import sim_users_predicate
+from predicate_constructors.avg_item_rating import average_item_rating_predicate, average_item_rating_series
+from predicate_constructors.avg_user_rating import average_user_rating_predicate, average_user_rating_series
+from predicate_constructors.sim_users import sim_users_predicate, cosine_sim_users_series
 from predicate_constructors.sim_demo_users import sim_demo_users_predicate
-from predicate_constructors.sim_items import sim_items_predicate
+from predicate_constructors.sim_items import sim_items_predicate, cosine_sim_items_series
 from predicate_constructors.target import target_predicate
 
 DATA_PATH = "../psl-datasets/movielens/data"
@@ -23,6 +23,10 @@ RATING_PREDICATE_NAME = 'rating'
 RATED_PREDICATE_NAME = 'rated'
 TARGET_PREDICATE_NAME = 'target'
 RATING_VALUE_COL_NAME = 'rating'
+USR_AVG_PREDICATE_NAME = 'avg_user_rating'
+ITEM_AVG_PREDICATE_NAME = 'avg_item_rating'
+SIM_USER_PREDICATE_NAME = 'sim_users'
+SIM_ITEM_PREDICATE_NAME = 'sim_items'
 N_MONTHS_PER_FOLD = 4
 N_FOLDS = 5
 
@@ -61,22 +65,39 @@ def construct_movielens_predicates():
         partitioned_truth_ratings = partition_by_timestamp(truth_ratings_df, n_partitions=20)
 
         # construct predicates that are static for fold
-        construct_static_predicates(observed_ratings_df, truth_ratings_df, fold_movies_df, fold_user_df, fold)
+       # construct_static_predicates(observed_ratings_df, truth_ratings_df, fold_movies_df, fold_user_df, fold)
 
         # construct predicates that are dynamic with time
-        construct_dynamic_predicates(observed_ratings_df, partitioned_truth_ratings, fold)
+        construct_dynamic_predicates(observed_ratings_df, partitioned_truth_ratings, movies_df, user_df, fold)
 
         print("Did fold #"+str(fold))
 
 
-def construct_dynamic_predicates(observed_ratings_df, partitioned_truth_ratings, fold):
+def construct_dynamic_predicates(observed_ratings_df, partitioned_truth_ratings, movies_df, users_df, fold):
     ratings_predicate(observed_ratings_df, partition='obs', fold=str(fold))
     aggregated_observed_ratings = observed_ratings_df
+
+    users = users_df.index.unique()
+    movies = movies_df.index.unique()
+
+    # keep track of users/items who have shown up in the data so that
+    # we know when to add or update a user/item's average rating
+    seen_user_averages = dict({})
+    seen_item_averages = dict({})
+    seen_user_sims = dict({})
+    seen_item_sims = dict({})
+
     for time_step in np.arange(len(partitioned_truth_ratings)):
+        print("Working on fold " + str(fold) + " time step " + str(time_step))
         truth_ratings_df_i = partitioned_truth_ratings[time_step]
         if time_step > 0:
             aggregated_observed_ratings = aggregated_observed_ratings.append(partitioned_truth_ratings[time_step - 1],
                                                                              ignore_index=False)
+        # get the series associated with user/item avg/similarities
+        user_avg_rating_series = average_user_rating_series(aggregated_observed_ratings)
+        item_avg_rating_series = average_item_rating_series(aggregated_observed_ratings)
+        sim_users_series = cosine_sim_users_series(aggregated_observed_ratings, users)
+        sim_items_series = cosine_sim_items_series(aggregated_observed_ratings, movies)
 
         # construct and write the predicates for timestamp
         ratings_predicate(aggregated_observed_ratings, partition='obs_ts_' + str(time_step), fold=str(fold))
@@ -87,6 +108,12 @@ def construct_dynamic_predicates(observed_ratings_df, partitioned_truth_ratings,
         rated_predicate(aggregated_observed_ratings, truth_ratings_df_i,
                         partition='obs_ts_' + str(time_step), fold=str(fold))
         target_predicate(truth_ratings_df_i, partition='obs_ts_' + str(time_step), fold=str(fold))
+
+        average_item_rating_predicate(user_avg_rating_series, time_step, str(fold))
+        average_user_rating_predicate(item_avg_rating_series, time_step, str(fold))
+        sim_users_predicate(sim_users_series, time_step, str(fold))
+        sim_items_predicate(sim_items_series, time_step, str(fold))
+
 
         # construct client commands
         command_list = []
@@ -121,8 +148,22 @@ def construct_dynamic_predicates(observed_ratings_df, partitioned_truth_ratings,
                                                           new_rated_df.loc[:, [RATING_VALUE_COL_NAME]].clip(1, 1),
                                                           constants.ADD, constants.OBS, TARGET_PREDICATE_NAME)
 
+            # add/update user average ratings
+            add_observation_command_list += series_to_dynamic_commands(user_avg_rating_series, seen_user_averages, USR_AVG_PREDICATE_NAME)
+            add_observation_command_list += series_to_dynamic_commands(item_avg_rating_series, seen_item_averages, ITEM_AVG_PREDICATE_NAME)
+
+            # add/update/delete user/item similarities
+            add_observation_command_list += series_to_dynamic_commands(sim_users_series, seen_user_sims, SIM_USER_PREDICATE_NAME, delete_unseen = True)
+            add_observation_command_list += series_to_dynamic_commands(sim_items_series, seen_item_sims, SIM_ITEM_PREDICATE_NAME, delete_unseen = True)
+
             if time_step == len(partitioned_truth_ratings) - 1:
                 extra_commands += [constants.CLOSE_COMMAND]
+
+        # update seen user rating averages
+        seen_user_averages = update_seen_atoms(user_avg_rating_series, seen_user_averages)
+        seen_item_averages = update_seen_atoms(item_avg_rating_series, seen_item_averages)
+        seen_user_sims = update_seen_atoms(sim_users_series, seen_user_sims, delete_unseen = True)
+        seen_item_sims = update_seen_atoms(sim_items_series, seen_item_sims, delete_unseen = True)
 
         extra_commands += [constants.EXIT_COMMAND]
 
@@ -133,16 +174,13 @@ def construct_dynamic_predicates(observed_ratings_df, partitioned_truth_ratings,
                            "commands_ts_" + str(time_step) + '.txt')
 
 
+
 def construct_static_predicates(observed_ratings_df, truth_ratings_df, movies_df, users_df, fold):
     users = users_df.index.unique()
     movies = movies_df.index.unique()
 
     nmf_ratings_predicate(observed_ratings_df, truth_ratings_df, str(fold))
     nb_ratings_predicate(observed_ratings_df, truth_ratings_df, users_df, movies_df, str(fold))
-
-    # TODO (Alex): Should be dynamic
-    average_item_rating_predicate(observed_ratings_df, truth_ratings_df, str(fold))
-    average_user_rating_predicate(observed_ratings_df, truth_ratings_df, str(fold))
 
     sim_content_predicate(movies_df, str(fold))
     sim_demo_users_predicate(users_df, str(fold))
