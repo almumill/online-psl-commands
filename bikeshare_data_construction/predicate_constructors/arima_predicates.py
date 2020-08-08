@@ -45,7 +45,7 @@ def arima_predicate(status_df, obs_start_date, obs_end_date, target_start_date, 
 
     total_time_start = time.time()
 
-    for station in stations[0:2]:
+    for station in stations:
         print("Doing station "+str(station))
 
         # isolate the training time series data
