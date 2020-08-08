@@ -1,0 +1,59 @@
+predicates:
+   SameClockTime/2:
+      - closed
+      - types:
+         - UniqueIntID
+         - UniqueIntID
+   SameWeekday/2:
+      - closed
+      - types:
+         - UniqueIntID
+         - UniqueIntID
+   Demand/2:
+      - open
+      - types:
+         - UniqueIntID
+         - UniqueIntID
+   IsWeekend/1:
+      - closed
+      - types:
+         - UniqueIntID
+   Station/1:
+      - closed
+      - types:
+         - UniqueIntID
+   Nearby/2:
+      - closed
+      - types:
+         - UniqueIntID
+         - UniqueIntID
+   Time/1:
+      - closed
+      - types:
+         - UniqueIntID
+   Commute/2:
+      - closed
+      - types:
+         - UniqueIntID
+         - UniqueIntID
+   Raining/2:
+      - closed
+      - types:
+         - UniqueIntID
+         - UniqueIntID
+
+observations:
+   SameClocktime: ../psl_data/0/eval/sameclocktime_obs.txt
+   SameWeekday: ../psl_data/0/eval/sameweekday_obs.txt
+   Demand: ../psl_data/0/eval/demand_obs.txt
+   IsWeekend: ../psl_data/0/eval/isweekend_obs.txt
+   Station: ../psl_data/0/eval/station_obs.txt
+   Nearby: ../psl_data/0/eval/nearby_obs.txt
+   Commute: ../psl_data/0/eval/commute_obs.txt
+   Raining: ../psl_data/0/eval/raining_obs.txt
+
+targets:
+   Demand: ../psl_data/0/eval/demand_targets.txt
+
+truth:
+   Demand: ../psl_data/0/eval/demand_truth.txt
