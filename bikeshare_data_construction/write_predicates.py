@@ -27,8 +27,8 @@ from pmdarima.arima import auto_arima
 import statistics
 import time
 
-
-DATA_PATH = "data/"
+DATA_PATH = "psl-datasets/bikeshare/data/"
+PSL_DATA_PATH = "psl-datasets/bikeshare/data/bikeshare/"
 # unnecessary when running on a LINQS server
 STATUS_CSV_LINE_COUNT = 1005000
 
@@ -75,7 +75,7 @@ def construct_bikeshare_predicates(obs_start_date, obs_end_date, target_start_da
     time_to_constant_dict, constant_to_time_dict = process_times(status_df)
 
     # make arima predictions
-    arima_predicate(status_df, obs_start_date, obs_end_date, target_start_date, target_end_date, time_to_constant_dict, fold=0, setting=setting)
+    #arima_predicate(status_df, obs_start_date, obs_end_date, target_start_date, target_end_date, time_to_constant_dict, PSL_DATA_PATH, fold=0, setting=setting)
 
     # create maps between timestamps and PSL constants
     time_to_constant_dict, constant_to_time_dict = process_times(demand_df)
@@ -83,38 +83,38 @@ def construct_bikeshare_predicates(obs_start_date, obs_end_date, target_start_da
     # associate times with hours of the day ([0, 23])
     ishour_predicate(time_to_constant_dict)
     hour_predicate()
-
+    return True
     # preprocess trip_df to only contain info about this fold&time-step
     trip_df = trip_df.loc[(obs_start_date <= trip_df["start_date"]) & (trip_df["start_date"] < obs_end_date)]
 
     # weather predicate
-    raining_predicate(weather_df, station_df, time_to_constant_dict, fold, setting)
+    raining_predicate(weather_df, station_df, time_to_constant_dict, PSL_DATA_PATH, fold, setting)
 
     # commute
-    commute_predicate(trip_df, 40, 0.4, fold, setting)
+    commute_predicate(trip_df, 40, 0.4, PSL_DATA_PATH, fold, setting)
 
 
     # separate the train/test status data
     obs_status_df = status_df.loc[(obs_start_date <= status_df["time"]) & (status_df["time"] < obs_end_date)]
     target_status_df = status_df.loc[(target_start_date <= status_df["time"]) & (status_df["time"] < target_end_date)]
 
-    time_predicate(target_status_df, time_to_constant_dict, fold, setting)
+    time_predicate(target_status_df, time_to_constant_dict, PSL_DATA_PATH, fold, setting)
     nearby_predicate(station_df.loc[is_in_list(station_df["id"], status_df["station_id"].unique())], 5, fold, setting)
 
     # write time-based and scoping predicates
     station_predicate(status_df, fold, setting)
-    sameclocktime_predicate(time_to_constant_dict, 0, 140, fold, setting)
-    sameweekday_predicate(time_to_constant_dict, 0, fold, setting)
-    isweekend_predicate(time_to_constant_dict, 0, fold, setting)
+    sameclocktime_predicate(time_to_constant_dict, 0, 140, PSL_DATA_PATH, fold, setting)
+    sameweekday_predicate(time_to_constant_dict, 0, PSL_DATA_PATH, fold, setting)
+    isweekend_predicate(time_to_constant_dict, 0, PSL_DATA_PATH, fold, setting)
 
     # create the train/test demand dataframes
     obs_demand_df = status_df_to_demand_df(obs_status_df, 1).to_frame().reset_index()
     target_demand_df = status_df_to_demand_df(target_status_df, 1).to_frame().reset_index()
 
     # write the train/test demand predicates
-    demand_predicate(obs_demand_df, time_to_constant_dict, 0, fold, setting)
-    demand_targets(target_demand_df, time_to_constant_dict, 0, fold, setting)
-    demand_truth(target_demand_df, time_to_constant_dict, 0, fold, setting)
+    demand_predicate(obs_demand_df, time_to_constant_dict, 0, PSL_DATA_PATH, fold, setting)
+    demand_targets(target_demand_df, time_to_constant_dict, 0, PSL_DATA_PATH, fold, setting)
+    demand_truth(target_demand_df, time_to_constant_dict, 0, PSL_DATA_PATH, fold, setting)
 
 
 def load_dataframes():

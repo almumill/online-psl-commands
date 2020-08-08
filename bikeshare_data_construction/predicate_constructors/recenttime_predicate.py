@@ -17,4 +17,4 @@ def recenttime_predicate(time_to_constant_dict, target_start_date, num_days=7, f
         if (time_date_object - target_start_date_object).days <= num_days:
             recenttime_predicate_lines += [str(time_constant) + "\t1"]
 
-    write_lines_to_predicate_file("psl_data/"+str(fold)+"/"+setting+"/recenttime_obs.txt")
+    write_lines_to_predicate_file(data_path+str(fold)+"/"+setting+"/recenttime_obs.txt")

@@ -25,7 +25,7 @@ def expand_predictions(preds, granularity):
 def dict_lookup(key, dict):
     return dict[key]
 
-def arima_predicate(status_df, obs_start_date, obs_end_date, target_start_date, target_end_date, time_to_constant_dict, fold=0, setting="eval"):
+def arima_predicate(status_df, obs_start_date, obs_end_date, target_start_date, target_end_date, time_to_constant_dict, data_path, fold=0, setting="eval"):
     arima_predicate_lines = ""
 
     # separate observed and truth data about bike demand
@@ -97,7 +97,7 @@ def arima_predicate(status_df, obs_start_date, obs_end_date, target_start_date, 
 
     print("total runtime: " + str(time.time() - total_time_start))
 
-    handle = open("psl_data/"+str(fold)+"/"+setting+"/arima_obs.txt", "w")
+    handle = open(data_path+str(fold)+"/"+setting+"/arima_obs.txt", "w")
     handle.write(arima_predicate_lines)
 
 def compare_arima_predictions(arima_predictions, truth_demand_df, coarse_gran=None):

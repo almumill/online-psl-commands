@@ -3,7 +3,7 @@ from datetime import date
 import os
 import pandas as pd
 
-def sameweekday_predicate(time_to_constant_dict, time_step, fold='0', setting='eval'):
+def sameweekday_predicate(time_to_constant_dict, time_step, data_path, fold='0', setting='eval'):
 	sameweekday_predicate_lines = []
 	times_list = sorted(list(time_to_constant_dict.keys()))
 	path = os.path.join("psl_data", str(fold), setting)
@@ -16,4 +16,4 @@ def sameweekday_predicate(time_to_constant_dict, time_step, fold='0', setting='e
 			# if the hour fields are the same, then they have the same clock time
 			if date(time.year, time.month, time.day).weekday() == date(time_2.year, time_2.month, time_2.day).weekday():
 				sameweekday_predicate_lines += [str(idx) + "\t" + str(idx_2 + idx) + "\t1"]
-	write_lines_to_predicate_file(path+"/sameweekday_obs.txt", sameweekday_predicate_lines)
+	write_lines_to_predicate_file(data_path+"sameweekday_obs.txt", sameweekday_predicate_lines)

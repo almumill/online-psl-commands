@@ -4,7 +4,7 @@ import pandas as pd
 #TODO: weekday only in preprocessing
 #TODO: 6am to 6pm preprocessing
 
-def commute_predicate(trip_df, min_threshold, ratio_threshold, fold=0, setting="eval"):
+def commute_predicate(trip_df, min_threshold, ratio_threshold, data_path, fold=0, setting="eval"):
     trips_dict = dict({})
     commute_predicate_lines =[]
 
@@ -28,4 +28,4 @@ def commute_predicate(trip_df, min_threshold, ratio_threshold, fold=0, setting="
                 min(float(trip_count/return_trip_count), float(return_trip_count/trip_count)) > ratio_threshold:
             commute_predicate_lines += [str(trip_info[0][0]) + "\t" + str(trip_info[0][1]) + "\t1"]
 
-    write_lines_to_predicate_file("psl_data/" + str(fold) + "/" + str(setting) + "/commute_obs.txt", commute_predicate_lines)
+    write_lines_to_predicate_file(data_path + str(fold) + "/" + str(setting) + "/commute_obs.txt", commute_predicate_lines)

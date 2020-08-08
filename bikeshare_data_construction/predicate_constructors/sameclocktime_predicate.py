@@ -3,7 +3,7 @@ from datetime import date, datetime
 import pandas as pd
 import os
 
-def sameclocktime_predicate(time_to_constant_dict, time_step, block_count, fold='0', setting='eval'):
+def sameclocktime_predicate(time_to_constant_dict, time_step, block_count, data_path, fold='0', setting='eval'):
 	sameclocktime_predicate_lines = []
 	times_list = sorted(list(time_to_constant_dict.keys()))
 	path = os.path.join("psl_data", str(fold), setting)
@@ -17,4 +17,4 @@ def sameclocktime_predicate(time_to_constant_dict, time_step, block_count, fold=
 				sameclocktime_predicate_lines += [str(idx) + "\t" + str(idx_2 + idx) + "\t1"]
 				k += 1
 		k = 0
-	write_lines_to_predicate_file(path +"/sameclocktime_obs.txt", sameclocktime_predicate_lines)
+	write_lines_to_predicate_file(data_path +"sameclocktime_obs.txt", sameclocktime_predicate_lines)

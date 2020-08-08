@@ -62,4 +62,4 @@ def raining_predicate(weather_df, station_df, time_to_constant_dict, fold=0, set
                 if (station_id, time) not in encountered_station_time_tuples:
                     encountered_station_time_tuples.add((station_id, time))
                     raining_predicate_lines += [str(station_id) + "\t" + str(time) + "\t1"]
-    write_lines_to_predicate_file("psl_data/" + str(fold) + "/" + str(setting) + "/raining_obs.txt", raining_predicate_lines)
+    write_lines_to_predicate_file(data_path + str(fold) + "/" + str(setting) + "/raining_obs.txt", raining_predicate_lines)
