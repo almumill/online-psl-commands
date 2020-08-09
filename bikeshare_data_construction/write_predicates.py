@@ -1,5 +1,5 @@
 import pandas as pd
-from helpers.process_times import process_times, truncate_to_day, truncate_to_week, matches_day
+from helpers.process_times import process_times, truncate_to_day, truncate_to_week, matches_day, get_start_and_end_dates
 from helpers.process_demand import status_df_to_demand_df
 from helpers.process_weather import get_zipcode_constant_dict
 from predicate_constructors.sameclocktime_predicate import sameclocktime_predicate
@@ -28,9 +28,9 @@ import statistics
 import time
 
 DATA_PATH = "psl-datasets/bikeshare/data/"
-PSL_DATA_PATH = "psl-datasets/bikeshare/data/bikeshare/"
+PSL_DATA_PATH = "psl-datasets/bikeshare/psl-data/"
 # unnecessary when running on a LINQS server
-STATUS_CSV_LINE_COUNT = 1005000
+STATUS_CSV_LINE_COUNT = 100000
 
 TIME_GRANULARITY = 3
 FOLD_COUNT = 6
@@ -46,8 +46,8 @@ def is_in_list(series, list):
 
 def construct_bikeshare_predicates(obs_start_date, obs_end_date, target_start_date, target_end_date, df_list, fold=0, setting="eval"):
 
-    if not os.path.exists("psl_data/"+str(fold)+"/"+str(setting)):
-        os.makedirs("psl_data/"+str(fold)+"/"+str(setting))
+    if not os.path.exists(PSL_DATA_PATH+str(fold)+"/"+str(setting)):
+        os.makedirs(PSL_DATA_PATH+str(fold)+"/"+str(setting))
 
     # unpack dataframes, convert timestamps
     station_df = df_list[0]
@@ -60,7 +60,6 @@ def construct_bikeshare_predicates(obs_start_date, obs_end_date, target_start_da
     status_df.time = pd.to_datetime(status_df.time, format='%Y/%m/%d %H:%M:%S')
     trip_df.start_date = pd.to_datetime(trip_df.start_date, format='%m/%d/%Y %H:%M')
     trip_df.end_date = pd.to_datetime(trip_df.end_date, format='%m/%d/%Y %H:%M')
- #   zipcode_to_constant_dict = get_zipcode_constant_dict(weather_df)
 
     # cut out all statuses that aren't in the observed/unobserved partitions
     status_df = status_df.loc[(obs_start_date <= status_df["time"]) & (status_df["time"] < target_end_date)]
@@ -81,9 +80,8 @@ def construct_bikeshare_predicates(obs_start_date, obs_end_date, target_start_da
     time_to_constant_dict, constant_to_time_dict = process_times(demand_df)
 
     # associate times with hours of the day ([0, 23])
-    ishour_predicate(time_to_constant_dict)
-    hour_predicate()
-    return True
+    ishour_predicate(time_to_constant_dict, PSL_DATA_PATH, fold=0, setting=setting)
+    hour_predicate(PSL_DATA_PATH, fold=0, setting=setting)
     # preprocess trip_df to only contain info about this fold&time-step
     trip_df = trip_df.loc[(obs_start_date <= trip_df["start_date"]) & (trip_df["start_date"] < obs_end_date)]
 
@@ -99,10 +97,10 @@ def construct_bikeshare_predicates(obs_start_date, obs_end_date, target_start_da
     target_status_df = status_df.loc[(target_start_date <= status_df["time"]) & (status_df["time"] < target_end_date)]
 
     time_predicate(target_status_df, time_to_constant_dict, PSL_DATA_PATH, fold, setting)
-    nearby_predicate(station_df.loc[is_in_list(station_df["id"], status_df["station_id"].unique())], 5, fold, setting)
+    nearby_predicate(station_df.loc[is_in_list(station_df["id"], status_df["station_id"].unique())], 5, PSL_DATA_PATH, fold, setting)
 
     # write time-based and scoping predicates
-    station_predicate(status_df, fold, setting)
+    station_predicate(status_df, PSL_DATA_PATH, fold, setting)
     sameclocktime_predicate(time_to_constant_dict, 0, 140, PSL_DATA_PATH, fold, setting)
     sameweekday_predicate(time_to_constant_dict, 0, PSL_DATA_PATH, fold, setting)
     isweekend_predicate(time_to_constant_dict, 0, PSL_DATA_PATH, fold, setting)
@@ -162,6 +160,8 @@ def main():
 
     station_df, status_df, trip_df, weather_df = load_dataframes()
     df_list = [station_df, status_df, trip_df, weather_df]
+
+    start_date, end_date = get_start_and_end_dates(status_df)
 
     construct_bikeshare_predicates(wl_obs_start_date, wl_obs_end_date, wl_target_start_date, wl_target_end_date, df_list, fold=0, setting="wl")
     construct_bikeshare_predicates(obs_start_date, obs_end_date, target_start_date, target_end_date, df_list)

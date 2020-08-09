@@ -39,3 +39,10 @@ def matches_week(dt, candidate_day):
     candidate_tuple = datetime.timetuple(candidate_day)
     if (tuple[0], tuple[1], tuple[2]) == (candidate_tuple[0], candidate_tuple[1], candidate_tuple[2]):
         return True
+
+def get_start_and_end_dates(status_df):
+    status_df.time = pd.to_datetime(status_df.time, format='%Y/%m/%d %H:%M:%S')
+    status_df = status_df.sort_values(by="time")
+    start_time = truncate_to_day(status_df.iloc[0, 3])
+    end_time = truncate_to_day(status_df.iloc[status_df.shape[0] - 1, 3])
+    return start_time, end_time
