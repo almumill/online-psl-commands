@@ -3,6 +3,7 @@ import pandas as pd
 from helpers.haversine_distance import haversine_distance
 from helpers.process_times import matches_day
 import pgeocode
+import os
 
 
 
@@ -48,7 +49,7 @@ def get_times_on_day(day, time_to_constant_dict):
             matching_time_list += [time_to_constant_dict[time]]
     return matching_time_list
 
-def raining_predicate(weather_df, station_df, time_to_constant_dict, fold=0, setting="eval"):
+def raining_predicate(weather_df, station_df, time_to_constant_dict, data_path, fold=0, setting="eval", ts=0):
     raining_predicate_lines = []
     station_to_zip, zip_to_station = station_to_zipcode_map(station_df, weather_df)
     weather_events_df = weather_df[weather_df.events.notnull()]
@@ -62,4 +63,4 @@ def raining_predicate(weather_df, station_df, time_to_constant_dict, fold=0, set
                 if (station_id, time) not in encountered_station_time_tuples:
                     encountered_station_time_tuples.add((station_id, time))
                     raining_predicate_lines += [str(station_id) + "\t" + str(time) + "\t1"]
-    write_lines_to_predicate_file(data_path + str(fold) + "/" + str(setting) + "/raining_obs.txt", raining_predicate_lines)
+    write_lines_to_predicate_file(os.path.join(data_path, str(fold), setting, str(ts), "raining_obs.txt"), raining_predicate_lines)

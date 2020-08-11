@@ -1,7 +1,7 @@
 from helpers.lines_to_predicate_file import write_lines_to_predicate_file
 import os
 
-def demand_truth(truth_demand_df, time_to_constant_dict, time_step, data_path, fold='0', setting='eval'):
+def demand_truth(truth_demand_df, time_to_constant_dict, time_step, data_path, fold='0', setting='eval', ts=0):
 	demand_truth_lines = []
 	path = os.path.join("psl_data", str(fold), setting)
 	if not os.path.exists(path):
@@ -10,4 +10,4 @@ def demand_truth(truth_demand_df, time_to_constant_dict, time_step, data_path, f
 		station_id = row["station_id"]
 		time_constant = time_to_constant_dict[row["time"]]
 		demand_truth_lines += [str(station_id) + "\t" + str(time_constant) + "\t" + str(row["bikes_available"])]
-	write_lines_to_predicate_file(data_path + "demand_truth.txt", demand_truth_lines)
+	write_lines_to_predicate_file(os.path.join(data_path, str(fold), setting, str(ts), "demand_truth.txt"), demand_truth_lines)

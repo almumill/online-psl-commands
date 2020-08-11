@@ -1,5 +1,5 @@
 import pandas as pd
-from helpers.process_times import process_times, truncate_to_day, truncate_to_week, matches_day, get_start_and_end_dates
+from helpers.process_times import process_times, truncate_to_day, truncate_to_week, matches_day, get_start_and_end_times, get_splits, get_timestep_ranges
 from helpers.process_demand import status_df_to_demand_df
 from helpers.process_weather import get_zipcode_constant_dict
 from predicate_constructors.sameclocktime_predicate import sameclocktime_predicate
@@ -30,10 +30,12 @@ import time
 DATA_PATH = "psl-datasets/bikeshare/data/"
 PSL_DATA_PATH = "psl-datasets/bikeshare/psl-data/"
 # unnecessary when running on a LINQS server
-STATUS_CSV_LINE_COUNT = 100000
+STATUS_CSV_LINE_COUNT = 500000
 
 TIME_GRANULARITY = 3
 FOLD_COUNT = 6
+TIMESTEP_COUNT = 10
+INIT_OBS_PROPORTION = 0.3
 
 def is_in_list(series, list):
     bool_array = []
@@ -44,10 +46,13 @@ def is_in_list(series, list):
             bool_array += [False]
     return bool_array
 
-def construct_bikeshare_predicates(obs_start_date, obs_end_date, target_start_date, target_end_date, df_list, fold=0, setting="eval"):
+def construct_bikeshare_predicates(obs_start_date, obs_end_date, target_start_date, target_end_date, df_list, fold=0, setting="eval", ts=0):
 
-    if not os.path.exists(PSL_DATA_PATH+str(fold)+"/"+str(setting)):
-        os.makedirs(PSL_DATA_PATH+str(fold)+"/"+str(setting))
+    print("building data for fold " + str(fold) + ", timestep " + str(ts))
+
+    target_dir = os.path.join(PSL_DATA_PATH, str(fold), setting, str(ts))
+    if not os.path.exists(target_dir):
+        os.makedirs(target_dir)
 
     # unpack dataframes, convert timestamps
     station_df = df_list[0]
@@ -79,40 +84,40 @@ def construct_bikeshare_predicates(obs_start_date, obs_end_date, target_start_da
     # create maps between timestamps and PSL constants
     time_to_constant_dict, constant_to_time_dict = process_times(demand_df)
 
+    # commute
+    commute_predicate(trip_df, 40, 0.4, PSL_DATA_PATH, fold, setting, ts=ts)
+
     # associate times with hours of the day ([0, 23])
-    ishour_predicate(time_to_constant_dict, PSL_DATA_PATH, fold=0, setting=setting)
-    hour_predicate(PSL_DATA_PATH, fold=0, setting=setting)
+    ishour_predicate(time_to_constant_dict, PSL_DATA_PATH, fold=0, setting=setting, ts=ts)
+    hour_predicate(PSL_DATA_PATH, fold=0, setting=setting, ts=ts)
     # preprocess trip_df to only contain info about this fold&time-step
     trip_df = trip_df.loc[(obs_start_date <= trip_df["start_date"]) & (trip_df["start_date"] < obs_end_date)]
 
     # weather predicate
-    raining_predicate(weather_df, station_df, time_to_constant_dict, PSL_DATA_PATH, fold, setting)
-
-    # commute
-    commute_predicate(trip_df, 40, 0.4, PSL_DATA_PATH, fold, setting)
+    raining_predicate(weather_df, station_df, time_to_constant_dict, PSL_DATA_PATH, fold, setting, ts)
 
 
     # separate the train/test status data
     obs_status_df = status_df.loc[(obs_start_date <= status_df["time"]) & (status_df["time"] < obs_end_date)]
     target_status_df = status_df.loc[(target_start_date <= status_df["time"]) & (status_df["time"] < target_end_date)]
 
-    time_predicate(target_status_df, time_to_constant_dict, PSL_DATA_PATH, fold, setting)
-    nearby_predicate(station_df.loc[is_in_list(station_df["id"], status_df["station_id"].unique())], 5, PSL_DATA_PATH, fold, setting)
+    time_predicate(target_status_df, time_to_constant_dict, PSL_DATA_PATH, fold, setting, ts=ts)
+    nearby_predicate(station_df.loc[is_in_list(station_df["id"], status_df["station_id"].unique())], 5, PSL_DATA_PATH, fold, setting, ts=ts)
 
     # write time-based and scoping predicates
-    station_predicate(status_df, PSL_DATA_PATH, fold, setting)
-    sameclocktime_predicate(time_to_constant_dict, 0, 140, PSL_DATA_PATH, fold, setting)
-    sameweekday_predicate(time_to_constant_dict, 0, PSL_DATA_PATH, fold, setting)
-    isweekend_predicate(time_to_constant_dict, 0, PSL_DATA_PATH, fold, setting)
+    station_predicate(status_df, PSL_DATA_PATH, fold, setting, ts=ts)
+    sameclocktime_predicate(time_to_constant_dict, 0, 140, PSL_DATA_PATH, fold, setting, ts=ts)
+    sameweekday_predicate(time_to_constant_dict, 0, PSL_DATA_PATH, fold, setting, ts=ts)
+    isweekend_predicate(time_to_constant_dict, 0, PSL_DATA_PATH, fold, setting, ts=ts)
 
     # create the train/test demand dataframes
     obs_demand_df = status_df_to_demand_df(obs_status_df, 1).to_frame().reset_index()
     target_demand_df = status_df_to_demand_df(target_status_df, 1).to_frame().reset_index()
 
     # write the train/test demand predicates
-    demand_predicate(obs_demand_df, time_to_constant_dict, 0, PSL_DATA_PATH, fold, setting)
-    demand_targets(target_demand_df, time_to_constant_dict, 0, PSL_DATA_PATH, fold, setting)
-    demand_truth(target_demand_df, time_to_constant_dict, 0, PSL_DATA_PATH, fold, setting)
+    demand_predicate(obs_demand_df, time_to_constant_dict, 0, PSL_DATA_PATH, fold, setting, ts=ts)
+    demand_targets(target_demand_df, time_to_constant_dict, 0, PSL_DATA_PATH, fold, setting, ts=ts)
+    demand_truth(target_demand_df, time_to_constant_dict, 0, PSL_DATA_PATH, fold, setting, ts=ts)
 
 
 def load_dataframes():
@@ -146,25 +151,26 @@ def load_dataframes():
 
 def main():
 
-    # weight learning fold dates
-    wl_obs_start_date = np.datetime64(date(2013, 8, 29))
-    wl_obs_end_date = np.datetime64(date(2013, 10, 29))
-    wl_target_start_date = np.datetime64(date(2013, 10, 29))
-    wl_target_end_date = np.datetime64(date(2013, 11, 29))
-
-    # evaluation fold dates
-    obs_start_date = np.datetime64(date(2013, 8, 29))
-    obs_end_date = np.datetime64(date(2013, 11, 29))
-    target_start_date = np.datetime64(date(2013, 11, 29))
-    target_end_date = np.datetime64(date(2013, 12, 29))
-
     station_df, status_df, trip_df, weather_df = load_dataframes()
     df_list = [station_df, status_df, trip_df, weather_df]
 
-    start_date, end_date = get_start_and_end_dates(status_df)
+    start_date, end_date = get_start_and_end_times(status_df)
+    splits = get_splits(start_date, end_date, FOLD_COUNT)
 
-    construct_bikeshare_predicates(wl_obs_start_date, wl_obs_end_date, wl_target_start_date, wl_target_end_date, df_list, fold=0, setting="wl")
-    construct_bikeshare_predicates(obs_start_date, obs_end_date, target_start_date, target_end_date, df_list)
+    timesteps = [0] * FOLD_COUNT
+
+    for idx, split in enumerate(splits):
+        timesteps[idx] = get_timestep_ranges(split[0], split[1], INIT_OBS_PROPORTION, TIMESTEP_COUNT)
+
+    for fold in range(FOLD_COUNT):
+        for ts_idx in range(TIMESTEP_COUNT):
+            timestep = timesteps[fold][ts_idx]
+            obs_start_date = timestep[0]
+            obs_end_date = timestep[1]
+            target_start_date = timestep[2]
+            target_end_date = timestep[3]
+            construct_bikeshare_predicates(obs_start_date, obs_end_date, target_start_date, target_end_date,
+                                           df_list, fold=fold, setting="eval", ts=ts_idx)
 
 if __name__ == '__main__':
     main()

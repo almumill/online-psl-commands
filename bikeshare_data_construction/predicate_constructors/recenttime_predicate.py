@@ -3,7 +3,7 @@ from datetime import date, datetime
 import os
 import pandas as pd
 
-def recenttime_predicate(time_to_constant_dict, target_start_date, num_days=7, fold=0, setting="eval"):
+def recenttime_predicate(time_to_constant_dict, target_start_date, data_path, num_days=7, fold=0, setting="eval", ts=0):
     recenttime_predicate_lines = []
     target_start_date_tuple = datetime.timetuple(target_start_date)
     target_start_date_object = date(target_start_date_tuple[0], target_start_date[1], target_start_date[2])
@@ -17,4 +17,4 @@ def recenttime_predicate(time_to_constant_dict, target_start_date, num_days=7, f
         if (time_date_object - target_start_date_object).days <= num_days:
             recenttime_predicate_lines += [str(time_constant) + "\t1"]
 
-    write_lines_to_predicate_file(data_path+str(fold)+"/"+setting+"/recenttime_obs.txt")
+    write_lines_to_predicate_file(os.path.join(data_path, str(fold), setting, str(ts), "recenttime_obs.txt"), recenttime_predicate_lines)

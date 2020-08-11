@@ -8,6 +8,7 @@ from helpers.process_demand import status_df_to_demand_df
 from helpers.lines_to_predicate_file import write_lines_to_predicate_file
 from helpers.process_times import chop_off_minutes
 import math
+import os
 
 TIME_GRANULARITY = 3
 
@@ -25,7 +26,7 @@ def expand_predictions(preds, granularity):
 def dict_lookup(key, dict):
     return dict[key]
 
-def arima_predicate(status_df, obs_start_date, obs_end_date, target_start_date, target_end_date, time_to_constant_dict, data_path, fold=0, setting="eval"):
+def arima_predicate(status_df, obs_start_date, obs_end_date, target_start_date, target_end_date, time_to_constant_dict, data_path, fold=0, setting="eval", ts=0):
     arima_predicate_lines = ""
 
     # separate observed and truth data about bike demand
@@ -97,7 +98,7 @@ def arima_predicate(status_df, obs_start_date, obs_end_date, target_start_date, 
 
     print("total runtime: " + str(time.time() - total_time_start))
 
-    handle = open(data_path+str(fold)+"/"+setting+"/arima_obs.txt", "w")
+    handle = open(os.path.join(data_path, str(fold), setting, str(ts), "arima_obs.txt"), "w")
     handle.write(arima_predicate_lines)
 
 def compare_arima_predictions(arima_predictions, truth_demand_df, coarse_gran=None):
