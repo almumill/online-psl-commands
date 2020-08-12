@@ -10,7 +10,7 @@ from helpers.process_times import chop_off_minutes
 import math
 import os
 
-TIME_GRANULARITY = 3
+TIME_GRANULARITY = 1
 
 # expand_predictions:
 # duplicate arima predictions to account for
@@ -57,7 +57,9 @@ def arima_predicate(status_df, obs_start_date, obs_end_date, target_start_date, 
 
         # best-performing hyperparameters, took ~46000 seconds to do fit a model for every station
         # max_p=168, max_P=168, max_q=168, max_Q=168, max_order=168*4, m=8
-        arima_model = auto_arima(demand)
+        arima_model = auto_arima(demand, max_p=168, max_P=168, max_q=168, max_Q=168, max_order=168*4, m=168)
+        print(arima_model.get_params())
+        exit(1)
 
         # create a df which is a copy of the fine-grained truth data
         # which we later fill in with ARIMA predictions and write

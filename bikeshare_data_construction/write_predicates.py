@@ -93,7 +93,7 @@ def construct_bikeshare_predicates(obs_start_date, obs_end_date, target_start_da
     time_to_constant_dict, constant_to_time_dict = process_times(status_df)
 
     # make arima predictions
-    #arima_predicate(status_df, obs_start_date, obs_end_date, target_start_date, target_end_date, time_to_constant_dict, PSL_DATA_PATH, fold=0, setting=setting)
+    arima_predicate(status_df, obs_start_date, obs_end_date, target_start_date, target_end_date, time_to_constant_dict, PSL_DATA_PATH, fold=0, setting=setting)
 
     # create maps between timestamps and PSL constants
     time_to_constant_dict, constant_to_time_dict = process_times(demand_df)
