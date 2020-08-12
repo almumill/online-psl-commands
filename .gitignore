@@ -16,5 +16,4 @@ psl-datasets/movielens/data
 commands.txt
 
 .ipynb_checkpoints
-ipynb_checkpoints/
 *.ipynb
