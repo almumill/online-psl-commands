@@ -2,6 +2,7 @@ import pandas as pd
 from helpers.process_times import process_times, truncate_to_day, truncate_to_week, matches_day, get_start_and_end_times, get_splits, get_timestep_ranges
 from helpers.process_demand import status_df_to_demand_df
 from helpers.process_weather import get_zipcode_constant_dict
+from helpers.predicate_diff_to_commands import predicate_diff_to_commands
 from predicate_constructors.sameclocktime_predicate import sameclocktime_predicate
 from predicate_constructors.demand_predicate import demand_predicate
 from predicate_constructors.demand_targets import demand_targets
@@ -19,6 +20,7 @@ from predicate_constructors.hour_predicate import hour_predicate
 from predicate_constructors.recenttime_predicate import recenttime_predicate
 from predicate_constructors.arima_predicates import arima_predicate
 from helpers.lines_to_predicate_file import write_lines_to_predicate_file
+import command_constructors.constants as constants
 import os.path
 import math
 from datetime import date, datetime

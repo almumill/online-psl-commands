@@ -16,8 +16,8 @@ def predicate_diff_to_commands(pred_file_1, pred_file_2, pred_name, partition):
         tokens = line.split("\t")
         constant_count = len(tokens) - 1
         const_list = [0] * constant_count
-        for const_cursor in range(constant_count - 1):
-            const_list[constant_count] = tokens[const_cursor]
+        for const_cursor in range(constant_count):
+            const_list[const_cursor] = tokens[const_cursor]
         const_tuple = tuple(const_list)
         pred_file_1_dict[const_tuple] = tokens[constant_count]
 
@@ -27,8 +27,8 @@ def predicate_diff_to_commands(pred_file_1, pred_file_2, pred_name, partition):
         tokens = line.split("\t")
         constant_count = len(tokens) - 1
         const_list = [0] * constant_count
-        for const_cursor in range(constant_count - 1):
-            const_list[constant_count] = tokens[const_cursor]
+        for const_cursor in range(constant_count):
+            const_list[const_cursor] = tokens[const_cursor]
         const_tuple = tuple(const_list)
         pred_file_2_dict[const_tuple] = tokens[constant_count]
 
@@ -36,14 +36,17 @@ def predicate_diff_to_commands(pred_file_1, pred_file_2, pred_name, partition):
         const_list = list(const_tuple)
         value = pred_file_2_dict[const_tuple]
         if const_tuple not in pred_file_1_dict.keys():
-            command_lines += create_command_line(constants.ADD, constants.OBS, pred_name, const_list,
-                                                 value)
+            command_lines += [create_command_line(constants.ADD, constants.OBS, pred_name, const_list,
+                                                 value)]
         else:
-            command_lines += create_command_line(constants.UPDATE, constants.OBS, pred_name, const_list,
-                                                 value)
+            if pred_file_1_dict[const_tuple] != value:
+                command_lines += [create_command_line(constants.UPDATE, constants.OBS, pred_name, const_list,
+                                                 value)]
 
     for const_tuple in pred_file_1_dict.keys():
         const_list = list(const_tuple)
         if const_tuple not in pred_file_2_dict.keys():
-            command_lines += create_command_line(constants.DELETE, constants.OBS, pred_name, const_list,
-                                                 pred_file_2_dict[const_tuple])
+            command_lines += [create_command_line(constants.DELETE, constants.OBS, pred_name, const_list,
+                                                 None)]
+
+    return command_lines

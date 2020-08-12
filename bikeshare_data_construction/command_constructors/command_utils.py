@@ -1,4 +1,4 @@
-import constants
+import command_constructors.constants as constants
 import os
 OUT_DIRECTORY = "../psl-datasets/movielens/data/movielens"
 COMMAND_DIRECTORY_NAME = "commands"
