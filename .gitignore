@@ -3,14 +3,17 @@
 
 # data
 ml-100k
+*.csv
 
 # Intellij meta data
 .idea
 
-#
 *_pycache_*
 
 results
 
 psl-datasets/movielens/data
 commands.txt
+
+.ipynb_checkpoints
+*.ipynb

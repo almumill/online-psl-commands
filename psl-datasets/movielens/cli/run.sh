@@ -41,7 +41,7 @@ function getData() {
 
 function runEvaluation() {
    echo "Running PSL Inference"
-   java -Xmx8G -Xms8G -jar "${JAR_PATH}" --model "${BASE_NAME}.psl" --data "${BASE_NAME}-eval.data" --output inferred-predicates ${ADDITIONAL_EVAL_OPTIONS} ${ADDITIONAL_PSL_OPTIONS} "$@"
+   java -Xmx8G -Xms8G  -Xrunhprof:cpu=samples -jar "${JAR_PATH}" --model "${BASE_NAME}.psl" --data "${BASE_NAME}-eval.data" --output inferred-predicates ${ADDITIONAL_EVAL_OPTIONS} ${ADDITIONAL_PSL_OPTIONS} "$@"
    if [[ "$?" -ne 0 ]]; then
       echo 'ERROR: Failed to run infernce'
       exit 70
