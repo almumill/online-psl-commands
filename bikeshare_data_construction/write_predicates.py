@@ -74,7 +74,6 @@ def construct_bikeshare_predicates(obs_start_date, obs_end_date, target_start_da
     # create df containing average demand for every hour
     demand_df = status_df_to_demand_df(status_df, 1).to_frame().reset_index()
 
-
     # map times to PSL constants
     time_to_constant_dict, constant_to_time_dict = process_times(status_df)
 
@@ -95,7 +94,6 @@ def construct_bikeshare_predicates(obs_start_date, obs_end_date, target_start_da
 
     # weather predicate
     raining_predicate(weather_df, station_df, time_to_constant_dict, PSL_DATA_PATH, fold, setting, ts)
-
 
     # separate the train/test status data
     obs_status_df = status_df.loc[(obs_start_date <= status_df["time"]) & (status_df["time"] < obs_end_date)]

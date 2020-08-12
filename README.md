@@ -31,3 +31,5 @@ Online
 0[      obs           \    t0      t1      t2  ] time [p0] evaluate
 1[      obs                t0  \   t1      t2  ] time [p1] evaluate
 2[      obs                t0      t1  \   t2  ] time [p2] evaluate
+
+TODO (Charles): Update readme

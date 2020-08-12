@@ -3,10 +3,6 @@ sys.path.insert(0, './command_constructors')
 from command_utils import create_command_line
 import command_constructors.constants as constants
 
-
-# location of ratings data relative to CWD
-DATA_FILE = "ml-100k/u.data"
-
 # proprtional size of observed segment in a given split
 OBS_PROPORTION = 0.7
 
