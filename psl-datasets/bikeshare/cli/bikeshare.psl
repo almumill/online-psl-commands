@@ -1,61 +1,13 @@
-#1: Demand(A, T1) & SameClockTime(T1, T2) -> Demand(A, T2) ^2
-#1: !Demand(A, T1) & SameClockTime(T1, T2) -> !Demand(A, T2) ^2
+1: SameWeekday(T1, T2) & Demand(S, T1) & IsHour(T1, H) & IsHour(T2, H) -> Demand(S, T2) ^2
+1: SameWeekday(T1, T2) & !Demand(S, T1) & IsHour(T1, H) & IsHour(T2, H) -> !Demand(S, T2) ^2
+1: Nearby(S1, S2) & Demand(S1, T) -> Demand(S2, T) ^2
+1: Time(T) & (S1 != S2) & Commute(S1, S2) & Demand(S1, T) -> !Demand(S2, T) ^2
+1: Time(T) & (S1 != S2) & Commute(S1, S2) & !Demand(S1, T) -> Demand(S2, T) ^2
+1: Time(T) & Arima(A, T) -> Demand(A, T) ^2
+1: Time(T) & !Arima(A, T) -> !Demand(A, T) ^2
+1: Station(S) & Time(T) & Raining(S, T) -> !Demand(S, T) ^2
+1: Station(S) & Time(T) & !Raining(S, T) -> Demand(S, T) ^2
 
-1: IsHour(T1, H) & IsHour(T2, H) & Demand(S, T1) -> Demand(S, T2)
-
-
-
-#1: Time(T) & Station(A) & IsWeekend(T) -> Demand(A, T) ^2
-#1: Time(T) & Station(A) & !IsWeekend(T) -> !Demand(A, T) ^2
-1: Nearby(A, B) & Demand(A, T) -> Demand(B, T) ^2
-1: Time(T) & Nearby(A, B) & !Demand(A, T) -> !Demand(B, T) ^2
-1: Time(T) & (A != B) & Commute(A, B) & Demand(A, T) -> !Demand(B, T) ^2
-1: Time(T) & (A != B) & Commute(A, B) & !Demand(A, T) -> Demand(B, T) ^2
-#1: Time(T) & Arima(A, T) -> Demand(A, T) ^2
-#1: Time(T) & !Arima(A, T) -> !Demand(A, T) ^2
-1: Raining(A, T) -> !Demand(A, T)
-
-
-# PreviousWeek(T2, T1) & Demand(A, T1) & SameClockTime(T1, T2) -> Demand(A, T2) ^2
-# bucket with weeks
-
-
-
-
-
-###########
-
-
-# station is by a touristsite
-
-
-# Demand(A, T) = percentage of bikes not at station
-# If Demand(A, T) = 1, all bikes are taken at station A time T
-
-# Periodicity
-# Data exploration: look at the periodicity to see
-# Maybe look at events?
-# if these rules hold
-#2.0: Demand(A, T1) & SameWeekday(T1, T2) -> Demand(A, T2)
-#2.0: !Demand(A, T1) & SameWeekday(T1, T2) -> !Demand(A, T2)
-
-# Station(A) & Holiday(T) -> Demand(A, T)
-# Station(A) & Weekend(T) -> Demand(A, T)
-# Data exploration note: does this hold?
-
-# Space
-#Demand(A, T) & Nearby(A, B) -> Demand(B, T)
-# Demand(A, T) & Commute(A, B) -> !Demand(B, T)
-# Data exploration ^^
-# What are the most common end/start stations, call them commute pairs
-# Check out the top few commute pairs and check for periodicity
-
-# External info about tourist sites (??)
-
-# lots of ways to define similar weather, temp/humidity/etc
-# try looking at separate components of the weather data and weight learn
-# each component's importance
-
-#SimilarWeather(T1, T2) & Demand(A, T1) -> Demand(A, T2)
-#Station(A) & IsRaining(T) -> !Demand(A, T)
-#Station(A) & IsSunny(T) -> Demand(A, T)
+#1: Station(A) & IsWeekend(T) -> Demand(A, T) ^2
+#1: Station(A) & !IsWeekend(T) -> !Demand(A, T) ^2
+#1: Nearby(A, B) & !Demand(A, T) -> !Demand(B, T) ^2
