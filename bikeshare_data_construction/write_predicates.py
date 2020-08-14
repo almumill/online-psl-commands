@@ -1,8 +1,9 @@
 import pandas as pd
-from helpers.process_times import process_times, truncate_to_day, truncate_to_week, matches_day, get_start_and_end_times, get_splits, get_timestep_ranges
+from helpers.process_times import train_validation_split, process_times, truncate_to_day, truncate_to_week, matches_day, get_start_and_end_times, get_splits, get_timestep_ranges
 from helpers.process_demand import status_df_to_demand_df
 from helpers.process_weather import get_zipcode_constant_dict
 from helpers.predicate_diff_to_commands import predicate_diff_to_commands
+from helpers.arima import get_arima_params
 from predicate_constructors.sameclocktime_predicate import sameclocktime_predicate
 from predicate_constructors.demand_predicate import demand_predicate
 from predicate_constructors.demand_targets import demand_targets
@@ -32,7 +33,7 @@ import time
 DATA_PATH = "psl-datasets/bikeshare/data/"
 PSL_DATA_PATH = "psl-datasets/bikeshare/psl-data/"
 # unnecessary when running on a LINQS server
-STATUS_CSV_LINE_COUNT = 500000
+STATUS_CSV_LINE_COUNT = 5000000
 
 TIME_GRANULARITY = 3
 FOLD_COUNT = 6
@@ -62,7 +63,7 @@ def is_in_list(series, list):
             bool_array += [False]
     return bool_array
 
-def construct_bikeshare_predicates(obs_start_date, obs_end_date, target_start_date, target_end_date, df_list, fold=0, setting="eval", ts=0):
+def construct_bikeshare_predicates(obs_start_date, obs_end_date, target_start_date, target_end_date, df_list, arima_params_dict, fold=0, setting="eval", ts=0):
 
     print("building data for fold " + str(fold) + ", timestep " + str(ts))
 
@@ -94,7 +95,7 @@ def construct_bikeshare_predicates(obs_start_date, obs_end_date, target_start_da
     time_to_constant_dict, constant_to_time_dict = process_times(status_df)
 
     # make arima predictions
-    arima_predicate(status_df, obs_start_date, obs_end_date, target_start_date, target_end_date, time_to_constant_dict, PSL_DATA_PATH, fold=0, setting=setting)
+    arima_predicate(status_df, arima_params_dict, obs_start_date, obs_end_date, target_start_date, target_end_date, time_to_constant_dict, PSL_DATA_PATH, fold=0, setting=setting)
 
     # create maps between timestamps and PSL constants
     time_to_constant_dict, constant_to_time_dict = process_times(demand_df)
@@ -142,7 +143,7 @@ def load_dataframes():
 
     # comment out nrows when running on a LINQS server
     status_df = pd.read_csv(DATA_PATH + "status.csv", sep=',', header=None, encoding="ISO-8859-1",
-                            engine='python', skiprows=[0])
+                            engine='python', skiprows=[0], nrows=STATUS_CSV_LINE_COUNT)
     status_df.columns = ["station_id", "bikes_available", "docks_available", "time"]
 
     trip_df = pd.read_csv(DATA_PATH + "trip.csv", sep=',', header=None, encoding="ISO-8859-1",
@@ -172,16 +173,6 @@ def create_commands(fold, setting="eval"):
         command_file_handle = open(command_file_names[timestep], "w+")
         commands = ""
 
-        for idx, file in enumerate(OBS_FILE_LIST):
-            predicate_name = OBS_PREDICATE_NAMES[idx]
-            if timestep == 0:
-                pred_file_1 = os.path.join(timestep_dirs[timestep], file)
-                pred_file_2 = None
-            else:
-                pred_file_1 = os.path.join(timestep_dirs[timestep - 1], file)
-                pred_file_2 = os.path.join(timestep_dirs[timestep], file)
-            commands += "\n".join(predicate_diff_to_commands(pred_file_1, pred_file_2, predicate_name, constants.OBS))
-
         for idx, file in enumerate(TARGET_FILE_LIST):
             predicate_name = TARGET_PREDICATE_NAMES[idx]
             if timestep == 0:
@@ -191,6 +182,16 @@ def create_commands(fold, setting="eval"):
                 pred_file_1 = os.path.join(timestep_dirs[timestep - 1], file)
                 pred_file_2 = os.path.join(timestep_dirs[timestep], file)
             commands += "\n".join(predicate_diff_to_commands(pred_file_1, pred_file_2, predicate_name, constants.TARGET))
+
+        for idx, file in enumerate(OBS_FILE_LIST):
+            predicate_name = OBS_PREDICATE_NAMES[idx]
+            if timestep == 0:
+                pred_file_1 = os.path.join(timestep_dirs[timestep], file)
+                pred_file_2 = None
+            else:
+                pred_file_1 = os.path.join(timestep_dirs[timestep - 1], file)
+                pred_file_2 = os.path.join(timestep_dirs[timestep], file)
+            commands += "\n".join(predicate_diff_to_commands(pred_file_1, pred_file_2, predicate_name, constants.OBS))
 
         command_file_handle.write(commands)
         command_file_handle.close()
@@ -209,14 +210,20 @@ def main():
         timesteps[idx] = get_timestep_ranges(split[0], split[1], INIT_OBS_PROPORTION, TIMESTEP_COUNT)
 
     for fold in range(FOLD_COUNT):
+
+        val_obs_start_date, val_obs_end_date, val_target_start_date, val_target_end_date = train_validation_split(
+            splits[fold][0], splits[fold][1], TRAIN_VAL_PROPORTION)
+        arima_params_dict = get_arima_params(status_df, val_obs_start_date, val_obs_end_date)
         for ts_idx in range(TIMESTEP_COUNT):
             timestep = timesteps[fold][ts_idx]
             obs_start_date = timestep[0]
             obs_end_date = timestep[1]
             target_start_date = timestep[2]
             target_end_date = timestep[3]
+
+
             construct_bikeshare_predicates(obs_start_date, obs_end_date, target_start_date, target_end_date,
-                                           df_list, fold=fold, setting="eval", ts=ts_idx)
+                                           df_list, arima_params_dict, fold=fold, setting="eval", ts=ts_idx)
 
     for fold in range(FOLD_COUNT):
         create_commands(fold)

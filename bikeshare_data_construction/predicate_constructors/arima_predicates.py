@@ -3,7 +3,7 @@ import time
 import numpy as np
 import pandas as pd
 import statistics
-from pmdarima.arima import auto_arima
+from pmdarima.arima import auto_arima, arima
 from helpers.process_demand import status_df_to_demand_df
 from helpers.lines_to_predicate_file import write_lines_to_predicate_file
 from helpers.process_times import chop_off_minutes
@@ -26,7 +26,7 @@ def expand_predictions(preds, granularity):
 def dict_lookup(key, dict):
     return dict[key]
 
-def arima_predicate(status_df, obs_start_date, obs_end_date, target_start_date, target_end_date, time_to_constant_dict, data_path, fold=0, setting="eval", ts=0):
+def arima_predicate(status_df, arima_params_dict, obs_start_date, obs_end_date, target_start_date, target_end_date, time_to_constant_dict, data_path, fold=0, setting="eval", ts=0):
     arima_predicate_lines = ""
 
     # separate observed and truth data about bike demand
@@ -53,13 +53,14 @@ def arima_predicate(status_df, obs_start_date, obs_end_date, target_start_date, 
         demand = obs_demand_df.loc[obs_demand_df["station_id"] == station]
         demand = demand["bikes_available"]
 
+        params = arima_params_dict[station]
+
         start_time = time.time()
 
         # best-performing hyperparameters, took ~46000 seconds to do fit a model for every station
         # max_p=168, max_P=168, max_q=168, max_Q=168, max_order=168*4, m=8
-        arima_model = auto_arima(demand, max_p=168, max_P=168, max_q=168, max_Q=168, max_order=168*4, m=168)
-        print(arima_model.get_params())
-        exit(1)
+        arima_model = arima.ARIMA(order=arima_params_dict[station]['order'], seasonal_order=arima_params_dict[station]['seasonal_order'])
+        arima_model = arima_model.fit(demand)
 
         # create a df which is a copy of the fine-grained truth data
         # which we later fill in with ARIMA predictions and write

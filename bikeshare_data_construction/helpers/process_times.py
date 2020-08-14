@@ -65,6 +65,17 @@ def get_splits(start_time, end_time, split_count):
 
     return splits
 
+def train_validation_split(start_time, end_time, proportion):
+
+    total_days = (end_time - start_time).days
+
+    split = [0, 0]
+    obs_end_date = start_time + timedelta(days=math.floor(total_days * proportion))
+    target_start_date = obs_end_date
+    target_end_date = end_time
+
+    return start_time, obs_end_date, target_start_date, target_end_date
+
 def get_timestep_ranges(start_time, end_time, init_proportion, step_count):
     timestep_ranges = [0] * step_count
     total_days = (end_time - start_time).days
