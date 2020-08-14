@@ -38,6 +38,7 @@ TIME_GRANULARITY = 3
 FOLD_COUNT = 6
 TIMESTEP_COUNT = 10
 INIT_OBS_PROPORTION = 0.3
+TRAIN_VAL_PROPORTION = 0.8
 
 OBS_FILE_LIST = ["commute_obs.txt", "demand_obs.txt", "hour_obs.txt",
                  "ishour_obs.txt", "isweekend_obs.txt", "nearby_obs.txt",
@@ -141,7 +142,7 @@ def load_dataframes():
 
     # comment out nrows when running on a LINQS server
     status_df = pd.read_csv(DATA_PATH + "status.csv", sep=',', header=None, encoding="ISO-8859-1",
-                            engine='python', skiprows=[0], nrows=STATUS_CSV_LINE_COUNT)
+                            engine='python', skiprows=[0])
     status_df.columns = ["station_id", "bikes_available", "docks_available", "time"]
 
     trip_df = pd.read_csv(DATA_PATH + "trip.csv", sep=',', header=None, encoding="ISO-8859-1",
