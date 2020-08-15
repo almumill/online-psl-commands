@@ -217,16 +217,16 @@ def main():
         arima_params_dict = get_arima_params(status_df, val_obs_start_date, val_obs_end_date)
         outfile = open("arima_params_dict_"+str(fold)+".p", "wb")
         pickle.dump(arima_params_dict, outfile)
-    for ts_idx in range(TIMESTEP_COUNT):
-            timestep = timesteps[fold][ts_idx]
-            obs_start_date = timestep[0]
-            obs_end_date = timestep[1]
-            target_start_date = timestep[2]
-            target_end_date = timestep[3]
+        for ts_idx in range(TIMESTEP_COUNT):
+                timestep = timesteps[fold][ts_idx]
+                obs_start_date = timestep[0]
+                obs_end_date = timestep[1]
+                target_start_date = timestep[2]
+                target_end_date = timestep[3]
 
 
-            construct_bikeshare_predicates(obs_start_date, obs_end_date, target_start_date, target_end_date,
-                                           df_list, arima_params_dict, fold=fold, setting="eval", ts=ts_idx)
+                construct_bikeshare_predicates(obs_start_date, obs_end_date, target_start_date, target_end_date,
+                                               df_list, arima_params_dict, fold=fold, setting="eval", ts=ts_idx)
 
     for fold in range(FOLD_COUNT):
         create_commands(fold)
