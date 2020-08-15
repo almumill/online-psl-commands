@@ -10,7 +10,7 @@ from helpers.process_times import chop_off_minutes
 import math
 import os
 
-TIME_GRANULARITY = 1
+TIME_GRANULARITY =  3 
 
 # expand_predictions:
 # duplicate arima predictions to account for

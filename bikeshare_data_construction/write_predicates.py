@@ -29,6 +29,7 @@ import numpy as np
 from pmdarima.arima import auto_arima
 import statistics
 import time
+import pickle
 
 DATA_PATH = "psl-datasets/bikeshare/data/"
 PSL_DATA_PATH = "psl-datasets/bikeshare/psl-data/"
@@ -39,7 +40,7 @@ TIME_GRANULARITY = 3
 FOLD_COUNT = 6
 TIMESTEP_COUNT = 10
 INIT_OBS_PROPORTION = 0.3
-TRAIN_VAL_PROPORTION = 0.8
+TRAIN_VAL_PROPORTION = 0.7
 
 OBS_FILE_LIST = ["commute_obs.txt", "demand_obs.txt", "hour_obs.txt",
                  "ishour_obs.txt", "isweekend_obs.txt", "nearby_obs.txt",
@@ -143,7 +144,7 @@ def load_dataframes():
 
     # comment out nrows when running on a LINQS server
     status_df = pd.read_csv(DATA_PATH + "status.csv", sep=',', header=None, encoding="ISO-8859-1",
-                            engine='python', skiprows=[0], nrows=STATUS_CSV_LINE_COUNT)
+                            engine='python', skiprows=[0])
     status_df.columns = ["station_id", "bikes_available", "docks_available", "time"]
 
     trip_df = pd.read_csv(DATA_PATH + "trip.csv", sep=',', header=None, encoding="ISO-8859-1",
@@ -214,7 +215,9 @@ def main():
         val_obs_start_date, val_obs_end_date, val_target_start_date, val_target_end_date = train_validation_split(
             splits[fold][0], splits[fold][1], TRAIN_VAL_PROPORTION)
         arima_params_dict = get_arima_params(status_df, val_obs_start_date, val_obs_end_date)
-        for ts_idx in range(TIMESTEP_COUNT):
+        outfile = open("arima_params_dict_"+str(fold)+".p", "wb")
+        pickle.dump(arima_params_dict, outfile)
+    for ts_idx in range(TIMESTEP_COUNT):
             timestep = timesteps[fold][ts_idx]
             obs_start_date = timestep[0]
             obs_end_date = timestep[1]
