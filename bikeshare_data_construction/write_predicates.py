@@ -194,6 +194,11 @@ def create_commands(fold, setting="eval"):
                 pred_file_2 = os.path.join(timestep_dirs[timestep], file)
             commands += "\n".join(predicate_diff_to_commands(pred_file_1, pred_file_2, predicate_name, constants.OBS))
 
+        if timestep == TIMESTEP_COUNT - 1:
+            commands += [constants.CLOSE_COMMAND]
+            commands += [constants.EXIT_COMMAND]
+
+
         command_file_handle.write(commands)
         command_file_handle.close()
 
