@@ -5,6 +5,7 @@ import os
 from command_constructors.create_commands import df_to_command, series_to_dynamic_commands, update_seen_atoms
 from command_constructors.command_utils import command_file_write, create_command_line
 import command_constructors.constants as constants
+from command_constructors.predicate_diff_to_commands import predicate_diff_to_commands
 from predicate_constructors.ratings import ratings_predicate
 from predicate_constructors.rated import rated_predicate
 from predicate_constructors.nmf_ratings import nmf_ratings_predicate
@@ -27,6 +28,13 @@ USR_AVG_PREDICATE_NAME = 'avg_user_rating'
 ITEM_AVG_PREDICATE_NAME = 'avg_item_rating'
 SIM_USER_PREDICATE_NAME = 'sim_users'
 SIM_ITEM_PREDICATE_NAME = 'sim_items'
+OBS_FILE_LIST = ["avg_item_rating_obs_", "avg_user_rating_obs_", "rated_obs_", "rating_obs_",
+                   "sim_items_obs_", "sim_users_obs_"]
+TARGET_FILE_LIST = ["rating_targets_"]
+OBS_PREDICATE_NAMES = ["avg_item_rating", "avg_user_rating", "rated", "rating", "sim_items", "sim_users"]
+TARGET_PREDICATE_NAMES = ["rating"]
+
+
 N_MONTHS_PER_FOLD = 4
 N_FOLDS = 5
 
@@ -94,10 +102,10 @@ def construct_dynamic_predicates(observed_ratings_df, partitioned_truth_ratings,
             aggregated_observed_ratings = aggregated_observed_ratings.append(partitioned_truth_ratings[time_step - 1],
                                                                              ignore_index=False)
         # get the series associated with user/item avg/similarities
-        user_avg_rating_series = average_user_rating_series(aggregated_observed_ratings)
-        item_avg_rating_series = average_item_rating_series(aggregated_observed_ratings)
-        sim_users_series = cosine_sim_users_series(aggregated_observed_ratings, users)
-        sim_items_series = cosine_sim_items_series(aggregated_observed_ratings, movies)
+        #user_avg_rating_series = average_user_rating_series(aggregated_observed_ratings)
+        #item_avg_rating_series = average_item_rating_series(aggregated_observed_ratings)
+        #sim_users_series = cosine_sim_users_series(aggregated_observed_ratings, users)
+        #sim_items_series = cosine_sim_items_series(aggregated_observed_ratings, movies)
 
         # construct and write the predicates for timestamp
         ratings_predicate(aggregated_observed_ratings, partition='obs_ts_' + str(time_step), fold=str(fold))
@@ -109,10 +117,10 @@ def construct_dynamic_predicates(observed_ratings_df, partitioned_truth_ratings,
                         partition='obs_ts_' + str(time_step), fold=str(fold))
         target_predicate(truth_ratings_df_i, partition='obs_ts_' + str(time_step), fold=str(fold))
 
-        average_item_rating_predicate(user_avg_rating_series, time_step, str(fold))
-        average_user_rating_predicate(item_avg_rating_series, time_step, str(fold))
-        sim_users_predicate(sim_users_series, time_step, str(fold))
-        sim_items_predicate(sim_items_series, time_step, str(fold))
+        #average_item_rating_predicate(user_avg_rating_series, time_step, str(fold))
+        ##average_user_rating_predicate(item_avg_rating_series, time_step, str(fold))
+        #sim_users_predicate(sim_users_series, time_step, str(fold))
+        #sim_items_predicate(sim_items_series, time_step, str(fold))
 
 
         # construct client commands
@@ -122,7 +130,34 @@ def construct_dynamic_predicates(observed_ratings_df, partitioned_truth_ratings,
         add_observation_command_list = []
         extra_commands = [constants.WRITE_INFERRED_COMMAND]
 
-        if time_step > 0:
+        cur_dir = DATA_PATH + '/movielens/' + str(fold) + '/eval/' + str(time_step)
+
+        for idx, file in enumerate(TARGET_FILE_LIST):
+            predicate_name = TARGET_PREDICATE_NAMES[idx]
+            file_cur = file + "ts_"+str(time_step)+".txt"
+            if time_step==0:
+                pred_file_1 = os.path.join(cur_dir, file_cur)
+                pred_file_2 = None
+            else:
+                file_prev = file + "ts_"+str(time_step - 1)+".txt"
+                pred_file_1 = os.path.join(cur_dir, file_cur)
+                pred_file_2 = os.path.join(cur_dir, file_prev)
+            command_list += "\n".join(
+                predicate_diff_to_commands(pred_file_1, pred_file_2, predicate_name, constants.TARGET))
+
+        for idx, file in enumerate(OBS_FILE_LIST):
+            predicate_name = OBS_PREDICATE_NAMES[idx]
+            file_cur = file + "ts_" + str(time_step) + ".txt"
+            if time_step==0:
+                pred_file_1 = os.path.join(cur_dir, file_cur)
+                pred_file_2 = None
+            else:
+                file_prev = file + "ts_" + str(time_step - 1) + ".txt"
+                pred_file_1 = os.path.join(cur_dir, file_cur)
+                pred_file_2 = os.path.join(cur_dir, file_prev)
+            command_list += "\n".join(
+                predicate_diff_to_commands(pred_file_1, pred_file_2, predicate_name, constants.OBS))
+            """
             # write time step command file
             cur_truth_ratings_args = truth_ratings_df_i.reset_index().loc[:, RATING_CONSTANT_COL_NAMES]
 
@@ -158,17 +193,16 @@ def construct_dynamic_predicates(observed_ratings_df, partitioned_truth_ratings,
 
             if time_step == len(partitioned_truth_ratings) - 1:
                 extra_commands += [constants.CLOSE_COMMAND]
+            
 
         # update seen user rating averages
         seen_user_averages = update_seen_atoms(user_avg_rating_series, seen_user_averages)
         seen_item_averages = update_seen_atoms(item_avg_rating_series, seen_item_averages)
         seen_user_sims = update_seen_atoms(sim_users_series, seen_user_sims, delete_unseen = True)
         seen_item_sims = update_seen_atoms(sim_items_series, seen_item_sims, delete_unseen = True)
+        """
 
         extra_commands += [constants.EXIT_COMMAND]
-
-        command_list += (add_targets_command_list + delete_target_command_list +
-                         add_observation_command_list + extra_commands)
 
         command_file_write(command_list, str(fold), 'eval',
                            "commands_ts_" + str(time_step) + '.txt')
